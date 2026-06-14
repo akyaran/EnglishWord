@@ -158,7 +158,7 @@ textarea {
   bottom: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
   margin: 0 calc(clamp(14px, 3vw, 28px) * -1);
   padding: 8px clamp(14px, 3vw, 28px) calc(8px + env(safe-area-inset-bottom));
@@ -236,6 +236,10 @@ textarea {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
+}
+
+.score-buttons.compact {
+  margin-top: 8px;
 }
 
 .result {
@@ -333,6 +337,71 @@ textarea {
 .list {
   display: grid;
   gap: 10px;
+}
+
+.daily-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.daily-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.count-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.daily-word-list {
+  display: grid;
+  gap: 10px;
+}
+
+.daily-word-item {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+}
+
+.daily-word-item p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.daily-number {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--soft);
+  color: #24575a;
+  font-weight: 900;
+}
+
+.daily-word-body {
+  min-width: 0;
+}
+
+.daily-answer {
+  margin-top: 4px;
+  color: var(--brand);
+  font-size: 1.15rem;
+  font-weight: 850;
+}
+
+.questions-only .daily-word-item {
+  align-items: center;
 }
 
 .daily-bars {
@@ -495,8 +564,23 @@ textarea {
 
   .stats,
   .form-grid,
-  .score-buttons {
+  .score-buttons,
+  .count-options {
     grid-template-columns: 1fr;
+  }
+
+  .tabs {
+    gap: 4px;
+  }
+
+  .tab {
+    min-height: 48px;
+    padding: 0 6px;
+    font-size: 0.82rem;
+  }
+
+  .daily-header {
+    display: grid;
   }
 
   .panel {
