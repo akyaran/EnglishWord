@@ -1,0 +1,17 @@
+{
+  "name": "English Word Trainer",
+  "short_name": "Words",
+  "description": "日本語から英文・英単語を思い出す端末内保存の学習アプリ",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#eef3f0",
+  "theme_color": "#17615f",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
