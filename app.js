@@ -9,11 +9,17 @@ let answerChecked = null;
 let hintCount = 0;
 let editingId = null;
 let selectedHistoryDate = localDateKey();
+let dailyWordCount = 10;
+let dailyWordCards = [];
+let dailyWordStage = "setup";
+let dailyWordRatings = {};
+let dailyWordSuggestions = [];
 
 const app = document.querySelector("#app");
 
 const tabs = [
   ["study", "学習"],
+  ["dailyWords", "今日の英単語"],
   ["library", "カード管理"],
   ["import", "インポート"],
   ["progress", "進捗"]
@@ -188,8 +194,7 @@ function suggestRating(input, expected, inputNorm, expectedNorm, mode, hintsUsed
       if (adjustedLetters >= 0.75) return "hard";
       return "again";
     }
-    if (inputTrimmed === expectedTrimmed) return "easy";
-    if (inputNorm === expectedNorm) return "good";
+    if (inputNorm === expectedNorm) return "easy";
     return similarity(inputNorm, expectedNorm) >= 0.8 ? "hard" : "again";
   }
 
@@ -261,7 +266,7 @@ function pickCard() {
   return weighted[Math.floor(Math.random() * weighted.length)];
 }
 
-function updateSchedule(cardId, rating, wasCorrect) {
+function updateSchedule(cardId, rating, wasCorrect, sessionOverrides = {}) {
   const card = state.cards.find((item) => item.id === cardId);
   const review = reviewFor(cardId);
   const quality = { again: 1, hard: 3, good: 4, easy: 5 }[rating];
@@ -302,9 +307,61 @@ function updateSchedule(cardId, rating, wasCorrect) {
     rating,
     wasCorrect,
     hintsUsed: answerChecked?.hintsUsed || 0,
-    at: new Date().toISOString()
+    at: new Date().toISOString(),
+    ...sessionOverrides
   });
   saveState();
+}
+
+function wordPriority(card) {
+  const review = reviewFor(card.id);
+  const dueTime = new Date(review.dueAt).getTime();
+  const overdueDays = Math.max(0, Math.floor((Date.now() - dueTime) / 86400000));
+  const dueBoost = dueTime <= Date.now() ? 1000 : 0;
+  const againBoost = review.lastResult === "again" ? 260 : 0;
+  const lapseBoost = review.lapses * 90;
+  const shallowBoost = Math.max(0, 5 - review.repetitions) * 28;
+  const futurePenalty = dueTime > Date.now() ? Math.ceil((dueTime - Date.now()) / 86400000) * 8 : 0;
+  return dueBoost + againBoost + lapseBoost + shallowBoost + overdueDays * 35 - futurePenalty;
+}
+
+function pickDailyWords(count) {
+  return modeCards("word")
+    .slice()
+    .sort((a, b) => wordPriority(b) - wordPriority(a))
+    .slice(0, count);
+}
+
+function startDailyWords(count = dailyWordCount) {
+  dailyWordCount = count;
+  dailyWordCards = pickDailyWords(count);
+  dailyWordStage = "questions";
+  dailyWordRatings = {};
+  dailyWordSuggestions = [];
+}
+
+function dailyWordsComplete() {
+  return dailyWordCards.length > 0 && dailyWordCards.every((card) => dailyWordRatings[card.id]);
+}
+
+function finishDailyWords() {
+  dailyWordCards.forEach((card) => {
+    const rating = dailyWordRatings[card.id];
+    if (!rating) return;
+    updateSchedule(card.id, rating, rating !== "again", {
+      input: "手書き練習",
+      hintsUsed: 0
+    });
+  });
+  dailyWordSuggestions = nextLikelyWords(3);
+  dailyWordStage = "done";
+}
+
+function nextLikelyWords(limit = 3) {
+  return modeCards("word")
+    .slice()
+    .sort((a, b) => wordPriority(b) - wordPriority(a))
+    .slice(0, limit);
 }
 
 function parseDelimited(text) {
@@ -482,9 +539,148 @@ function render() {
 
 function renderActiveTab(s) {
   if (activeTab === "study") return renderStudy(s);
+  if (activeTab === "dailyWords") return renderDailyWords();
   if (activeTab === "library") return renderLibrary();
   if (activeTab === "import") return renderImport();
   return renderProgress(s);
+}
+
+function renderDailyWords() {
+  const words = modeCards("word");
+  if (!words.length) {
+    return `
+      <section class="panel empty">
+        <div>
+          <h2>英単語カードを追加すると今日のテストを作れます</h2>
+          <p>カード管理から英単語を追加するか、CSV/TSVで取り込んでください。</p>
+        </div>
+      </section>
+    `;
+  }
+
+  if (dailyWordStage === "questions") return renderDailyWordQuestions();
+  if (dailyWordStage === "answers") return renderDailyWordAnswers();
+  if (dailyWordStage === "done") return renderDailyWordDone();
+  return renderDailyWordSetup(words.length);
+}
+
+function renderDailyWordSetup(totalWords) {
+  return `
+    <section class="grid two">
+      <div class="panel daily-panel">
+        <h2>今日の英単語</h2>
+        <p class="muted">学習状況から、今日テストする英単語を選びます。画面には日本語だけを出すので、紙に英単語を書いて練習できます。</p>
+        <div class="count-options">
+          ${[5, 10, 20].map((count) => `
+            <button class="${dailyWordCount === count ? "" : "secondary"}" data-daily-count="${count}">${count}個</button>
+          `).join("")}
+        </div>
+        <div class="actions">
+          <button data-action="start-daily-words">今日のテストを作る</button>
+        </div>
+      </div>
+      <aside class="panel">
+        <h2>対象</h2>
+        <div class="stats">
+          <div class="stat"><span>英単語</span><strong>${totalWords}</strong></div>
+          <div class="stat"><span>復習待ち</span><strong>${dueCards("word").length}</strong></div>
+        </div>
+      </aside>
+    </section>
+  `;
+}
+
+function renderDailyWordQuestions() {
+  return `
+    <section class="panel daily-panel">
+      <header class="daily-header">
+        <div>
+          <h2>今日の英単語 ${dailyWordCards.length}個</h2>
+          <p class="muted">英単語はまだ表示していません。日本語を見て、紙に英単語を書いてください。</p>
+        </div>
+        <div class="actions">
+          <button class="secondary" data-action="reset-daily-words">作り直す</button>
+          <button data-action="show-daily-answers">解答を見る</button>
+        </div>
+      </header>
+      <div class="daily-word-list questions-only">
+        ${dailyWordCards.map((card, index) => `
+          <article class="daily-word-item">
+            <span class="daily-number">${index + 1}</span>
+            <strong>${escapeHtml(card.ja)}</strong>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderDailyWordAnswers() {
+  return `
+    <section class="panel daily-panel">
+      <header class="daily-header">
+        <div>
+          <h2>解答と自己判定</h2>
+          <p class="muted">紙に書いた答えを見比べて、単語ごとに判定してください。</p>
+        </div>
+        <div class="actions">
+          <button class="secondary" data-action="back-daily-questions">問題に戻る</button>
+          <button data-action="finish-daily-words" ${dailyWordsComplete() ? "" : "disabled"}>判定を保存</button>
+        </div>
+      </header>
+      <div class="daily-word-list">
+        ${dailyWordCards.map((card, index) => renderDailyWordAnswerItem(card, index)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderDailyWordAnswerItem(card, index) {
+  const selected = dailyWordRatings[card.id];
+  return `
+    <article class="daily-word-item answer-item">
+      <span class="daily-number">${index + 1}</span>
+      <div class="daily-word-body">
+        <p><strong>${escapeHtml(card.ja)}</strong></p>
+        <p class="daily-answer">${escapeHtml(card.en)}</p>
+        <div class="score-buttons compact">
+          ${Object.entries(ratingLabels).map(([rating, label]) => `
+            <button class="${selected === rating ? "" : "secondary"}" data-daily-rating="${rating}" data-card-id="${card.id}">${label}</button>
+          `).join("")}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderDailyWordDone() {
+  return `
+    <section class="grid two">
+      <div class="panel daily-panel">
+        <h2>今日の英単語を保存しました</h2>
+        <p class="muted">自己判定をもとに、次回の復習予定を更新しました。</p>
+        <div class="actions">
+          <button data-action="reset-daily-words">もう一度テストを作る</button>
+          <button class="secondary" data-tab="progress">履歴を見る</button>
+        </div>
+      </div>
+      <aside class="panel daily-panel">
+        <h2>次回出そうな単語</h2>
+        <p class="notice">次回出そうな単語：最低5回ずつ書いて練習しよう！</p>
+        <div class="daily-word-list">
+          ${dailyWordSuggestions.length ? dailyWordSuggestions.map((card, index) => `
+            <article class="daily-word-item">
+              <span class="daily-number">${index + 1}</span>
+              <div class="daily-word-body">
+                <p><strong>${escapeHtml(card.ja)}</strong></p>
+                <p class="daily-answer">${escapeHtml(card.en)}</p>
+              </div>
+            </article>
+          `).join("") : `<div class="empty">おすすめできる単語がまだありません</div>`}
+        </div>
+      </aside>
+    </section>
+  `;
 }
 
 function renderStudy(s) {
@@ -788,8 +984,22 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll("[data-daily-count]").forEach((button) => {
+    button.addEventListener("click", () => {
+      dailyWordCount = Number(button.dataset.dailyCount);
+      render();
+    });
+  });
+
   document.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", handleAction);
+  });
+
+  document.querySelectorAll("[data-daily-rating]").forEach((button) => {
+    button.addEventListener("click", () => {
+      dailyWordRatings[button.dataset.cardId] = button.dataset.dailyRating;
+      render();
+    });
   });
 
   document.querySelectorAll("[data-rating]").forEach((button) => {
@@ -920,6 +1130,29 @@ function handleAction(event) {
   }
   if (action === "export-history-csv") {
     exportHistoryCsv(selectedHistoryDate);
+  }
+  if (action === "start-daily-words") {
+    startDailyWords(dailyWordCount);
+    render();
+  }
+  if (action === "show-daily-answers") {
+    dailyWordStage = "answers";
+    render();
+  }
+  if (action === "back-daily-questions") {
+    dailyWordStage = "questions";
+    render();
+  }
+  if (action === "finish-daily-words") {
+    finishDailyWords();
+    render();
+  }
+  if (action === "reset-daily-words") {
+    dailyWordCards = [];
+    dailyWordStage = "setup";
+    dailyWordRatings = {};
+    dailyWordSuggestions = [];
+    render();
   }
 }
 
