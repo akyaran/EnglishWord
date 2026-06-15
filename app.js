@@ -447,7 +447,7 @@ function loadImage(file) {
 
 async function preprocessOcrImage(file) {
   const image = await loadImage(file);
-  const maxSide = 1600;
+  const maxSide = 1280;
   const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(image.width * scale));
@@ -465,7 +465,7 @@ async function preprocessOcrImage(file) {
     data[index + 2] = contrasted;
   }
   context.putImageData(imageData, 0, 0);
-  return canvas.toDataURL("image/png");
+  return canvas.toDataURL("image/jpeg", 0.82);
 }
 
 async function recognizeDailyAnswers() {
