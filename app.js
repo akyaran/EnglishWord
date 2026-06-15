@@ -14,6 +14,11 @@ let dailyWordCards = [];
 let dailyWordStage = "setup";
 let dailyWordRatings = {};
 let dailyWordSuggestions = [];
+let dailyWordInputs = {};
+let dailyOcrFile = null;
+let dailyOcrText = "";
+let dailyOcrStatus = "";
+let dailyOcrBusy = false;
 
 const app = document.querySelector("#app");
 
@@ -338,6 +343,11 @@ function startDailyWords(count = dailyWordCount) {
   dailyWordStage = "questions";
   dailyWordRatings = {};
   dailyWordSuggestions = [];
+  dailyWordInputs = {};
+  dailyOcrFile = null;
+  dailyOcrText = "";
+  dailyOcrStatus = "";
+  dailyOcrBusy = false;
 }
 
 function dailyWordsComplete() {
@@ -349,7 +359,7 @@ function finishDailyWords() {
     const rating = dailyWordRatings[card.id];
     if (!rating) return;
     updateSchedule(card.id, rating, rating !== "again", {
-      input: "手書き練習",
+      input: dailyWordInputs[card.id] || "手書き練習",
       hintsUsed: 0
     });
   });
@@ -362,6 +372,117 @@ function nextLikelyWords(limit = 3) {
     .slice()
     .sort((a, b) => wordPriority(b) - wordPriority(a))
     .slice(0, limit);
+}
+
+function cleanRecognizedWord(value) {
+  const match = String(value || "").match(/[A-Za-z][A-Za-z'\-]*/);
+  return match ? match[0] : "";
+}
+
+function parseNumberedAnswers(text) {
+  const answers = {};
+  String(text || "").split(/\r?\n/).forEach((line) => {
+    const match = line.match(/^\s*(\d{1,2})\s*[\.\)\-:：]?\s*(.+?)\s*$/);
+    if (!match) return;
+    const index = Number(match[1]);
+    const recognized = cleanRecognizedWord(match[2]);
+    if (index > 0 && recognized) answers[index] = recognized;
+  });
+  return answers;
+}
+
+function applyRecognizedAnswers(text) {
+  const answers = parseNumberedAnswers(text);
+  dailyWordCards.forEach((card, index) => {
+    const recognized = answers[index + 1] || "";
+    dailyWordInputs[card.id] = recognized;
+    dailyWordRatings[card.id] = recognized
+      ? gradeAnswer(recognized, card.en, "word").suggestedRating
+      : "again";
+  });
+}
+
+function updateDailyWordInput(cardId, value) {
+  const card = dailyWordCards.find((item) => item.id === cardId);
+  dailyWordInputs[cardId] = cleanRecognizedWord(value);
+  dailyWordRatings[cardId] = dailyWordInputs[cardId] && card
+    ? gradeAnswer(dailyWordInputs[cardId], card.en, "word").suggestedRating
+    : "again";
+}
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function preprocessOcrImage(file) {
+  const image = await loadImage(file);
+  const maxSide = 1600;
+  const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  for (let index = 0; index < data.length; index += 4) {
+    const gray = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114;
+    const contrasted = Math.max(0, Math.min(255, (gray - 128) * 1.35 + 128));
+    data[index] = contrasted;
+    data[index + 1] = contrasted;
+    data[index + 2] = contrasted;
+  }
+  context.putImageData(imageData, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
+async function recognizeDailyAnswers() {
+  if (!dailyOcrFile) {
+    alert("写真を選択してください。");
+    return;
+  }
+  if (!window.Tesseract?.recognize) {
+    dailyOcrStatus = "OCRライブラリを読み込めませんでした。ネット接続を確認するか、手動判定で続けてください。";
+    render();
+    return;
+  }
+
+  dailyOcrBusy = true;
+  dailyOcrStatus = "画像を整えています...";
+  render();
+
+  try {
+    const imageDataUrl = await preprocessOcrImage(dailyOcrFile);
+    dailyOcrStatus = "手書き文字を読み取っています...";
+    render();
+    const result = await window.Tesseract.recognize(imageDataUrl, "eng", {
+      logger(message) {
+        if (message.status === "recognizing text") {
+          dailyOcrStatus = `手書き文字を読み取っています... ${Math.round((message.progress || 0) * 100)}%`;
+          render();
+        }
+      }
+    });
+    dailyOcrText = result?.data?.text || "";
+    applyRecognizedAnswers(dailyOcrText);
+    dailyOcrStatus = "読み取り結果を反映しました。必要に応じて修正してください。";
+  } catch {
+    dailyOcrStatus = "読み取りに失敗しました。写真を撮り直すか、手動判定で続けてください。";
+  } finally {
+    dailyOcrBusy = false;
+    render();
+  }
 }
 
 function parseDelimited(text) {
@@ -628,10 +749,33 @@ function renderDailyWordAnswers() {
           <button data-action="finish-daily-words" ${dailyWordsComplete() ? "" : "disabled"}>判定を保存</button>
         </div>
       </header>
+      ${renderDailyOcrPanel()}
       <div class="daily-word-list">
         ${dailyWordCards.map((card, index) => renderDailyWordAnswerItem(card, index)).join("")}
       </div>
     </section>
+  `;
+}
+
+function renderDailyOcrPanel() {
+  return `
+    <div class="ocr-panel">
+      <h3>写真で答え合わせ</h3>
+      <p class="muted">答案は「1 apple」「2 reserve」のように番号付きで縦に書くと読み取りやすくなります。</p>
+      <input type="file" id="ocr-image" accept="image/*" capture="environment" />
+      <div class="actions">
+        <button class="secondary" data-action="recognize-daily-image" ${dailyOcrBusy ? "disabled" : ""}>写真を読み取る</button>
+      </div>
+      ${dailyOcrStatus ? `<div class="notice">${escapeHtml(dailyOcrStatus)}</div>` : ""}
+      ${dailyOcrText ? `
+        <label>認識テキスト
+          <textarea id="ocr-text" class="ocr-text">${escapeHtml(dailyOcrText)}</textarea>
+        </label>
+        <div class="actions">
+          <button class="secondary" data-action="apply-ocr-text">認識テキストを反映</button>
+        </div>
+      ` : ""}
+    </div>
   `;
 }
 
@@ -643,6 +787,9 @@ function renderDailyWordAnswerItem(card, index) {
       <div class="daily-word-body">
         <p><strong>${escapeHtml(card.ja)}</strong></p>
         <p class="daily-answer">${escapeHtml(card.en)}</p>
+        <label class="recognized-answer">読み取り結果
+          <input value="${escapeHtml(dailyWordInputs[card.id] || "")}" data-daily-input="${card.id}" placeholder="例: ${escapeHtml(card.en)}" />
+        </label>
         <div class="score-buttons compact">
           ${Object.entries(ratingLabels).map(([rating, label]) => `
             <button class="${selected === rating ? "" : "secondary"}" data-daily-rating="${rating}" data-card-id="${card.id}">${label}</button>
@@ -1003,6 +1150,13 @@ function bindEvents() {
     });
   });
 
+  document.querySelectorAll("[data-daily-input]").forEach((input) => {
+    input.addEventListener("change", () => {
+      updateDailyWordInput(input.dataset.dailyInput, input.value);
+      render();
+    });
+  });
+
   document.querySelectorAll("[data-rating]").forEach((button) => {
     button.addEventListener("click", () => {
       updateSchedule(currentCard.id, button.dataset.rating, answerChecked.correct);
@@ -1060,6 +1214,12 @@ function bindEvents() {
   document.querySelector("#search")?.addEventListener("input", () => render());
   document.querySelector("#history-date")?.addEventListener("change", (event) => {
     selectedHistoryDate = event.currentTarget.value;
+    render();
+  });
+
+  document.querySelector("#ocr-image")?.addEventListener("change", (event) => {
+    dailyOcrFile = event.currentTarget.files?.[0] || null;
+    dailyOcrStatus = dailyOcrFile ? `${dailyOcrFile.name} を選択しました。` : "";
     render();
   });
 }
@@ -1160,6 +1320,20 @@ function handleAction(event) {
     dailyWordStage = "setup";
     dailyWordRatings = {};
     dailyWordSuggestions = [];
+    dailyWordInputs = {};
+    dailyOcrFile = null;
+    dailyOcrText = "";
+    dailyOcrStatus = "";
+    dailyOcrBusy = false;
+    render();
+  }
+  if (action === "recognize-daily-image") {
+    recognizeDailyAnswers();
+  }
+  if (action === "apply-ocr-text") {
+    dailyOcrText = document.querySelector("#ocr-text")?.value || "";
+    applyRecognizedAnswers(dailyOcrText);
+    dailyOcrStatus = "認識テキストを反映しました。";
     render();
   }
 }
