@@ -707,6 +707,7 @@ function renderStudy(s) {
         <textarea class="answer-input" id="answer" placeholder="${activeMode === "word" ? "英単語を入力" : "英文を入力"}" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="text" ${result ? "disabled" : ""}>${escapeHtml(result?.input || "")}</textarea>
         <div class="actions">
           <button data-action="check-answer" ${result ? "disabled" : ""}>答え合わせ</button>
+          <button class="secondary" data-action="clear-answer" ${result ? "disabled" : ""}>クリア</button>
           <button class="secondary" data-action="show-hint" ${result || hintCount >= totalHints ? "disabled" : ""}>ヒント</button>
           <button class="secondary" data-action="skip-card">次の問題</button>
         </div>
@@ -1070,6 +1071,13 @@ function handleAction(event) {
     answerChecked = { input, ...gradeAnswer(input, currentCard.en, currentCard.mode || activeMode, hintCount) };
     hintCount = 0;
     render();
+  }
+  if (action === "clear-answer") {
+    const answer = document.querySelector("#answer");
+    if (answer) {
+      answer.value = "";
+      answer.focus();
+    }
   }
   if (action === "show-hint") {
     hintCount = Math.min(totalHintCount(currentCard), hintCount + 1);
