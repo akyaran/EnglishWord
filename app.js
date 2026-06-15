@@ -1,6 +1,8 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.1.0";
+const APP_VERSION = "v1.2.0";
+const RECOGNITION_API_KEY = "english-word-recognition-api-url";
+const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 
 const state = loadState();
 let activeTab = "study";
@@ -20,6 +22,8 @@ let dailyOcrFile = null;
 let dailyOcrText = "";
 let dailyOcrStatus = "";
 let dailyOcrBusy = false;
+let recognitionApiUrl = localStorage.getItem(RECOGNITION_API_KEY) || "";
+let recognitionToken = localStorage.getItem(RECOGNITION_TOKEN_KEY) || "";
 
 const app = document.querySelector("#app");
 
@@ -403,6 +407,22 @@ function applyRecognizedAnswers(text) {
   });
 }
 
+function applyRecognizedItems(items) {
+  const byIndex = new Map(
+    (items || []).map((item) => [Number(item.index), cleanRecognizedWord(item.recognized)])
+  );
+  dailyWordCards.forEach((card, index) => {
+    const recognized = byIndex.get(index + 1) || "";
+    dailyWordInputs[card.id] = recognized;
+    dailyWordRatings[card.id] = recognized
+      ? gradeAnswer(recognized, card.en, "word").suggestedRating
+      : "again";
+  });
+  dailyOcrText = dailyWordCards
+    .map((card, index) => `${index + 1} ${dailyWordInputs[card.id] || ""}`.trim())
+    .join("\n");
+}
+
 function updateDailyWordInput(cardId, value) {
   const card = dailyWordCards.find((item) => item.id === cardId);
   dailyWordInputs[cardId] = cleanRecognizedWord(value);
@@ -453,8 +473,8 @@ async function recognizeDailyAnswers() {
     alert("写真を選択してください。");
     return;
   }
-  if (!window.Tesseract?.recognize) {
-    dailyOcrStatus = "OCRライブラリを読み込めませんでした。ネット接続を確認するか、手動判定で続けてください。";
+  if (!recognitionApiUrl) {
+    dailyOcrStatus = "API URLを設定してください。設定できるまでは手動判定で続けられます。";
     render();
     return;
   }
@@ -465,25 +485,42 @@ async function recognizeDailyAnswers() {
 
   try {
     const imageDataUrl = await preprocessOcrImage(dailyOcrFile);
-    dailyOcrStatus = "手書き文字を読み取っています...";
+    dailyOcrStatus = "APIで手書き文字を読み取っています...";
     render();
-    const result = await window.Tesseract.recognize(imageDataUrl, "eng", {
-      logger(message) {
-        if (message.status === "recognizing text") {
-          dailyOcrStatus = `手書き文字を読み取っています... ${Math.round((message.progress || 0) * 100)}%`;
-          render();
-        }
-      }
+    const response = await fetch(recognitionApiUrl, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(recognitionToken ? { "x-app-token": recognitionToken } : {})
+      },
+      body: JSON.stringify({
+        imageDataUrl,
+        cards: dailyWordCards.map((card) => ({ ja: card.ja, en: card.en }))
+      })
     });
-    dailyOcrText = result?.data?.text || "";
-    applyRecognizedAnswers(dailyOcrText);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || `API error: ${response.status}`);
+    }
+    applyRecognizedItems(payload.items || []);
     dailyOcrStatus = "読み取り結果を反映しました。必要に応じて修正してください。";
-  } catch {
-    dailyOcrStatus = "読み取りに失敗しました。写真を撮り直すか、手動判定で続けてください。";
+  } catch (error) {
+    dailyOcrStatus = `読み取りに失敗しました。${error.message || "写真を撮り直すか、手動判定で続けてください。"}`;
   } finally {
     dailyOcrBusy = false;
     render();
   }
+}
+
+function saveRecognitionSettings() {
+  recognitionApiUrl = (document.querySelector("#recognition-api-url")?.value || "").trim();
+  recognitionToken = (document.querySelector("#recognition-token")?.value || "").trim();
+  if (recognitionApiUrl) localStorage.setItem(RECOGNITION_API_KEY, recognitionApiUrl);
+  else localStorage.removeItem(RECOGNITION_API_KEY);
+  if (recognitionToken) localStorage.setItem(RECOGNITION_TOKEN_KEY, recognitionToken);
+  else localStorage.removeItem(RECOGNITION_TOKEN_KEY);
+  dailyOcrStatus = "API設定を保存しました。";
+  render();
 }
 
 function parseDelimited(text) {
@@ -762,10 +799,21 @@ function renderDailyOcrPanel() {
   return `
     <div class="ocr-panel">
       <h3>写真で答え合わせ</h3>
-      <p class="muted">答案は「1 apple」「2 reserve」のように番号付きで縦に書くと読み取りやすくなります。</p>
+      <p class="muted">Cloudflare Worker経由で読み取ります。答案は「1 apple」「2 reserve」のように番号付きで縦に書くと読み取りやすくなります。</p>
+      <div class="api-settings">
+        <label>API URL
+          <input id="recognition-api-url" value="${escapeHtml(recognitionApiUrl)}" placeholder="https://englishword-handwriting.example.workers.dev/recognize-handwriting" />
+        </label>
+        <label>アクセストークン
+          <input id="recognition-token" type="password" value="${escapeHtml(recognitionToken)}" placeholder="Cloudflare WorkerのACCESS_TOKEN" />
+        </label>
+        <div class="actions">
+          <button class="secondary" data-action="save-recognition-settings">API設定を保存</button>
+        </div>
+      </div>
       <input type="file" id="ocr-image" accept="image/*" />
       <div class="actions">
-        <button class="secondary" data-action="recognize-daily-image" ${dailyOcrBusy ? "disabled" : ""}>写真を読み取る</button>
+        <button class="secondary" data-action="recognize-daily-image" ${dailyOcrBusy ? "disabled" : ""}>APIで写真を読み取る</button>
       </div>
       ${dailyOcrStatus ? `<div class="notice">${escapeHtml(dailyOcrStatus)}</div>` : ""}
       ${dailyOcrText ? `
@@ -1336,6 +1384,9 @@ function handleAction(event) {
     applyRecognizedAnswers(dailyOcrText);
     dailyOcrStatus = "認識テキストを反映しました。";
     render();
+  }
+  if (action === "save-recognition-settings") {
+    saveRecognitionSettings();
   }
 }
 
