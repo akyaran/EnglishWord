@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.0";
+const APP_VERSION = "v1.3.1";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 
@@ -373,6 +373,7 @@ function finishDailyWords() {
     });
   });
   dailyWordSuggestions = nextLikelyWords(3);
+  maybeShowWordGoalCelebration();
   dailyWordStage = "done";
 }
 
@@ -387,7 +388,6 @@ function wordStudyGoalStats() {
   const todayKey = localDateKey();
   const sessions = state.sessions.filter((session) =>
     session.mode === "word" &&
-    (session.source || "study") === "study" &&
     localDateKey(session.at) === todayKey
   );
   const mastered = sessions.filter((session) => session.rating === "good" || session.rating === "easy").length;
@@ -401,7 +401,6 @@ function wordStudyGoalStats() {
 }
 
 function maybeShowWordGoalCelebration() {
-  if (activeMode !== "word") return;
   const todayKey = localDateKey();
   if (state.settings.wordGoalCelebratedDate === todayKey) return;
   const goalStats = wordStudyGoalStats();
@@ -736,6 +735,7 @@ function render() {
 
 function renderActiveTab(s) {
   if (activeTab === "study") return renderStudy(s);
+  if (wordGoalCelebration) return renderWordGoalCelebration();
   if (activeTab === "dailyWords") return renderDailyWords();
   if (activeTab === "library") return renderLibrary();
   if (activeTab === "import") return renderImport();
