@@ -128,6 +128,21 @@ textarea {
   letter-spacing: 0;
 }
 
+.app-version {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin-left: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  padding: 2px 7px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
 .brand p,
 .muted {
   margin: 0;
