@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.4";
+const APP_VERSION = "v1.3.5";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 const REWARD_IMAGE_BASE = "./assets/rewards/";
@@ -52,6 +52,7 @@ let dailyOcrStatus = "";
 let dailyOcrBusy = false;
 let recognitionApiUrl = localStorage.getItem(RECOGNITION_API_KEY) || "";
 let recognitionToken = localStorage.getItem(RECOGNITION_TOKEN_KEY) || "";
+let recognitionSettingsStatus = "";
 let wordGoalCelebration = null;
 
 const app = document.querySelector("#app");
@@ -61,7 +62,8 @@ const tabs = [
   ["dailyWords", "今日の英単語"],
   ["library", "カード管理"],
   ["import", "インポート"],
-  ["progress", "進捗"]
+  ["progress", "進捗"],
+  ["settings", "設定"]
 ];
 
 const modeLabels = {
@@ -654,7 +656,7 @@ function saveRecognitionSettings() {
   else localStorage.removeItem(RECOGNITION_API_KEY);
   if (recognitionToken) localStorage.setItem(RECOGNITION_TOKEN_KEY, recognitionToken);
   else localStorage.removeItem(RECOGNITION_TOKEN_KEY);
-  dailyOcrStatus = "API設定を保存しました。";
+  recognitionSettingsStatus = "API設定を保存しました。";
   render();
 }
 
@@ -837,6 +839,7 @@ function renderActiveTab(s) {
   if (activeTab === "dailyWords") return renderDailyWords();
   if (activeTab === "library") return renderLibrary();
   if (activeTab === "import") return renderImport();
+  if (activeTab === "settings") return renderSettings();
   return renderProgress(s);
 }
 
@@ -918,16 +921,25 @@ function renderDailyWordAnswers() {
           <h2>解答と自己判定</h2>
           <p class="muted">紙に書いた答えを見比べて、単語ごとに判定してください。</p>
         </div>
-        <div class="actions">
-          <button class="secondary" data-action="back-daily-questions">問題に戻る</button>
-          <button data-action="finish-daily-words" ${dailyWordsComplete() ? "" : "disabled"}>判定を保存</button>
-        </div>
+        ${renderDailyAnswerActions()}
       </header>
       ${renderDailyOcrPanel()}
       <div class="daily-word-list">
         ${dailyWordCards.map((card, index) => renderDailyWordAnswerItem(card, index)).join("")}
       </div>
+      <footer class="daily-footer">
+        ${renderDailyAnswerActions()}
+      </footer>
     </section>
+  `;
+}
+
+function renderDailyAnswerActions() {
+  return `
+    <div class="actions">
+      <button class="secondary" data-action="back-daily-questions">問題に戻る</button>
+      <button data-action="finish-daily-words" ${dailyWordsComplete() ? "" : "disabled"}>判定を保存</button>
+    </div>
   `;
 }
 
@@ -936,17 +948,7 @@ function renderDailyOcrPanel() {
     <div class="ocr-panel">
       <h3>写真で答え合わせ</h3>
       <p class="muted">Cloudflare Worker経由で読み取ります。答案は「1 apple」「2 reserve」のように番号付きで縦に書くと読み取りやすくなります。</p>
-      <div class="api-settings">
-        <label>API URL
-          <input id="recognition-api-url" value="${escapeHtml(recognitionApiUrl)}" placeholder="https://englishword-handwriting.example.workers.dev/recognize-handwriting" />
-        </label>
-        <label>アクセストークン
-          <input id="recognition-token" type="password" value="${escapeHtml(recognitionToken)}" placeholder="Cloudflare WorkerのACCESS_TOKEN" />
-        </label>
-        <div class="actions">
-          <button class="secondary" data-action="save-recognition-settings">API設定を保存</button>
-        </div>
-      </div>
+      ${recognitionApiUrl ? "" : `<div class="notice">API URLは設定タブで登録できます。未設定の場合は手動判定で続けられます。</div>`}
       <input type="file" id="ocr-image" accept="image/*" />
       <div class="actions">
         <button class="secondary" data-action="recognize-daily-image" ${dailyOcrBusy ? "disabled" : ""}>APIで写真を読み取る</button>
@@ -961,6 +963,37 @@ function renderDailyOcrPanel() {
         </div>
       ` : ""}
     </div>
+  `;
+}
+
+function renderSettings() {
+  return `
+    <section class="grid two">
+      <div class="panel">
+        <h2>設定</h2>
+        <p class="muted">写真で答え合わせに使うCloudflare Workerの接続先を保存します。</p>
+        <div class="api-settings">
+          <label>API URL
+            <input id="recognition-api-url" value="${escapeHtml(recognitionApiUrl)}" placeholder="https://englishword-handwriting.example.workers.dev/recognize-handwriting" />
+          </label>
+          <label>アクセストークン
+            <input id="recognition-token" type="password" value="${escapeHtml(recognitionToken)}" placeholder="Cloudflare WorkerのACCESS_TOKEN" />
+          </label>
+          <div class="actions">
+            <button data-action="save-recognition-settings">API設定を保存</button>
+          </div>
+          ${recognitionSettingsStatus ? `<div class="notice">${escapeHtml(recognitionSettingsStatus)}</div>` : ""}
+        </div>
+      </div>
+      <aside class="panel">
+        <h2>写真で答え合わせ</h2>
+        <p class="muted">設定後は「今日の英単語」の解答ページで写真を選び、APIで読み取れます。</p>
+        <div class="stats">
+          <div class="stat"><span>API URL</span><strong>${recognitionApiUrl ? "設定済み" : "未設定"}</strong></div>
+          <div class="stat"><span>トークン</span><strong>${recognitionToken ? "設定済み" : "未設定"}</strong></div>
+        </div>
+      </aside>
+    </section>
   `;
 }
 
