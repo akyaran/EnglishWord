@@ -117,7 +117,8 @@ async function recognizeWithOpenAI({ imageDataUrl, cards }, env) {
   const prompt = [
     "You are reading a student's handwritten English vocabulary answer sheet.",
     "The sheet should contain numbered answers such as '1 apple', '2 reserve'.",
-    "Return only compact JSON in this exact shape: {\"items\":[{\"index\":1,\"recognized\":\"apple\"}]}",
+    "Return only compact JSON in this exact shape: {\"items\":[{\"index\":1,\"recognized\":\"police officer\"}]}",
+    "The recognized value may be a single word, compound word, or multi-word phrase. Keep the full English answer phrase.",
     "Use the printed/handwritten question numbers. If an answer is blank or unreadable, omit it.",
     "Do not grade. Do not add explanations.",
     "Expected question list:",
