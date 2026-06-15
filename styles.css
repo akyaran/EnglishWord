@@ -404,6 +404,36 @@ textarea {
   align-items: center;
 }
 
+.ocr-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+}
+
+.ocr-panel h3 {
+  margin: 0;
+}
+
+.ocr-text {
+  min-height: 108px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+}
+
+.recognized-answer {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.recognized-answer input {
+  color: var(--ink);
+}
+
 .daily-bars {
   margin-top: 12px;
 }
