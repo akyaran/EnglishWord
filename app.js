@@ -1,5 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
+const APP_VERSION = "v1.1.0";
 
 const state = loadState();
 let activeTab = "study";
@@ -640,7 +641,7 @@ function render() {
         <div class="brand">
           <div class="brand-mark">W</div>
           <div>
-            <h1>English Word Trainer</h1>
+            <h1>English Word Trainer <span class="app-version">${APP_VERSION}</span></h1>
             <p>日本語から英文・英単語を思い出す間隔反復トレーニング</p>
           </div>
         </div>
