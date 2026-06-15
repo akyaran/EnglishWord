@@ -762,7 +762,7 @@ function renderDailyOcrPanel() {
     <div class="ocr-panel">
       <h3>写真で答え合わせ</h3>
       <p class="muted">答案は「1 apple」「2 reserve」のように番号付きで縦に書くと読み取りやすくなります。</p>
-      <input type="file" id="ocr-image" accept="image/*" capture="environment" />
+      <input type="file" id="ocr-image" accept="image/*" />
       <div class="actions">
         <button class="secondary" data-action="recognize-daily-image" ${dailyOcrBusy ? "disabled" : ""}>写真を読み取る</button>
       </div>
