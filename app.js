@@ -1,9 +1,13 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.3";
+const APP_VERSION = "v1.3.4";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
-const REWARD_CHARACTERS = [
+const REWARD_IMAGE_BASE = "./assets/rewards/";
+const REWARD_IMAGE_MAX = 20;
+const REWARD_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "svg"];
+const REWARD_IMAGE_SCAN_TOKEN = Date.now().toString(36);
+const FALLBACK_REWARD_CHARACTERS = [
   {
     src: "./assets/rewards/star-helper.svg",
     alt: "Star Helper reward character"
@@ -25,6 +29,8 @@ const REWARD_CHARACTERS = [
     alt: "Word Card Ribbon reward character"
   }
 ];
+let rewardCharacters = FALLBACK_REWARD_CHARACTERS;
+let rewardImageScanPromise = null;
 
 const state = loadState();
 let activeTab = "study";
@@ -447,11 +453,62 @@ function maybeShowWordGoalCelebration() {
     reward: randomRewardCharacter(),
     suggestions: nextLikelyWords(3)
   };
+  loadRewardCharacters().then((candidates) => {
+    if (!wordGoalCelebration || !candidates.length) return;
+    wordGoalCelebration.reward = randomRewardCharacter();
+    render();
+  });
 }
 
 function randomRewardCharacter() {
-  if (!REWARD_CHARACTERS.length) return null;
-  return REWARD_CHARACTERS[Math.floor(Math.random() * REWARD_CHARACTERS.length)];
+  if (!rewardCharacters.length) return null;
+  return rewardCharacters[Math.floor(Math.random() * rewardCharacters.length)];
+}
+
+function rewardImageUrl(index, extension) {
+  const number = String(index).padStart(2, "0");
+  return `${REWARD_IMAGE_BASE}image${number}.${extension}?reward=${APP_VERSION}-${REWARD_IMAGE_SCAN_TOKEN}`;
+}
+
+function loadRewardImage(src, alt) {
+  if (typeof Image === "undefined") return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const image = new Image();
+    const done = (candidate) => {
+      image.onload = null;
+      image.onerror = null;
+      resolve(candidate);
+    };
+    image.onload = () => done({ src, alt });
+    image.onerror = () => done(null);
+    image.src = src;
+  });
+}
+
+async function findRewardImage(index) {
+  for (const extension of REWARD_IMAGE_EXTENSIONS) {
+    const candidate = await loadRewardImage(
+      rewardImageUrl(index, extension),
+      `Reward image ${String(index).padStart(2, "0")}`
+    );
+    if (candidate) return candidate;
+  }
+  return null;
+}
+
+function loadRewardCharacters() {
+  if (rewardImageScanPromise) return rewardImageScanPromise;
+  rewardImageScanPromise = Promise.all(
+    Array.from({ length: REWARD_IMAGE_MAX }, (_, index) => findRewardImage(index + 1))
+  ).then((results) => {
+    const detected = results.filter(Boolean);
+    rewardCharacters = detected.length ? detected : FALLBACK_REWARD_CHARACTERS;
+    return detected;
+  }).catch(() => {
+    rewardCharacters = FALLBACK_REWARD_CHARACTERS;
+    return [];
+  });
+  return rewardImageScanPromise;
 }
 
 function cleanRecognizedWord(value) {
@@ -1543,4 +1600,5 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
 
+loadRewardCharacters();
 render();
