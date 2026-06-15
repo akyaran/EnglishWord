@@ -1,8 +1,30 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.2";
+const APP_VERSION = "v1.3.3";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
+const REWARD_CHARACTERS = [
+  {
+    src: "./assets/rewards/star-helper.svg",
+    alt: "Star Helper reward character"
+  },
+  {
+    src: "./assets/rewards/crown-notebook.svg",
+    alt: "Crown Notebook reward character"
+  },
+  {
+    src: "./assets/rewards/firework-pencil.svg",
+    alt: "Firework Pencil reward character"
+  },
+  {
+    src: "./assets/rewards/cloud-coach.svg",
+    alt: "Cloud Coach reward character"
+  },
+  {
+    src: "./assets/rewards/word-card-ribbon.svg",
+    alt: "Word Card Ribbon reward character"
+  }
+];
 
 const state = loadState();
 let activeTab = "study";
@@ -422,8 +444,14 @@ function maybeShowWordGoalCelebration() {
   saveState();
   wordGoalCelebration = {
     ...goalStats,
+    reward: randomRewardCharacter(),
     suggestions: nextLikelyWords(3)
   };
+}
+
+function randomRewardCharacter() {
+  if (!REWARD_CHARACTERS.length) return null;
+  return REWARD_CHARACTERS[Math.floor(Math.random() * REWARD_CHARACTERS.length)];
 }
 
 function cleanRecognizedWord(value) {
@@ -984,10 +1012,21 @@ function renderStudy(s) {
 
 function renderWordGoalCelebration() {
   const suggestions = wordGoalCelebration.suggestions || [];
+  const reward = wordGoalCelebration.reward;
   return `
     <section class="grid two">
       <div class="panel celebration-panel">
-        <div class="celebration-mark">✓</div>
+        <div class="celebration-visual">
+          <div class="celebration-mark">✓</div>
+          ${reward ? `
+            <img
+              class="reward-character"
+              src="${escapeHtml(reward.src)}"
+              alt="${escapeHtml(reward.alt)}"
+              loading="lazy"
+            />
+          ` : ""}
+        </div>
         <h2>今日の目標達成！</h2>
         <p class="celebration-lead">英単語トレーニング、よく頑張りました。</p>
         <div class="stats">
