@@ -432,6 +432,15 @@ textarea {
   margin: 0;
 }
 
+.api-settings {
+  display: grid;
+  gap: 10px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fbfdf9;
+  padding: 12px;
+}
+
 .ocr-text {
   min-height: 108px;
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
