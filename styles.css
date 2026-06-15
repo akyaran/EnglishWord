@@ -173,7 +173,7 @@ textarea {
   bottom: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   gap: 6px;
   margin: 0 calc(clamp(14px, 3vw, 28px) * -1);
   padding: 8px clamp(14px, 3vw, 28px) calc(8px + env(safe-area-inset-bottom));
@@ -468,6 +468,13 @@ textarea {
 
 .daily-word-body {
   min-width: 0;
+}
+
+.daily-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
 }
 
 .daily-answer {
