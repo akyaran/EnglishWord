@@ -15,6 +15,12 @@
 
 写真答え合わせはOpenAI APIを使うため、Cloudflare Workerの設定とAPIキー登録が必要です。答案は `1 apple`、`2 reserve` のように番号付きで縦に書くと照合しやすくなります。
 
+## 達成画像の差し替え
+
+ノルマ達成画面の画像は `assets/rewards/` に置いた画像から自動で選ばれます。`image01.jpg` から `image20.jpg` までの2桁連番で配置してください。
+
+対応形式は `jpg`, `jpeg`, `png`, `webp`, `svg` です。たとえば `image01.jpg`、`image02.png`、`image03.webp` を置くと、その3枚からランダム表示されます。ユーザー画像がない場合は、同じフォルダ内の初期SVG画像が使われます。
+
 ## Cloudflare Worker
 
 `worker/` に手書き認識用のCloudflare Workerがあります。
