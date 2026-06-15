@@ -20,6 +20,8 @@ npx wrangler secret put ACCESS_TOKEN
 
 Use the deployed Worker URL ending with `/recognize-handwriting` in the app's photo answer-check settings.
 
+The default model is `gpt-4o-mini`. If your OpenAI project cannot use that model, set the Worker variable `OPENAI_MODEL` to another image-capable model available in your project.
+
 ## Request
 
 ```json
