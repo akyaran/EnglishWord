@@ -3,5 +3,5 @@ main = "src/index.js"
 compatibility_date = "2026-06-15"
 
 [vars]
-OPENAI_MODEL = "gpt-4.1-mini"
+OPENAI_MODEL = "gpt-4o-mini"
 ALLOWED_ORIGINS = "https://akyaran.github.io,http://localhost:8787,http://127.0.0.1:8787"
