@@ -1,16 +1,11 @@
-const CACHE_NAME = "english-word-trainer-v12";
+const CACHE_NAME = "english-word-trainer-v13";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
   "./manifest.webmanifest",
-  "./icon.svg",
-  "./assets/rewards/star-helper.svg",
-  "./assets/rewards/crown-notebook.svg",
-  "./assets/rewards/firework-pencil.svg",
-  "./assets/rewards/cloud-coach.svg",
-  "./assets/rewards/word-card-ribbon.svg"
+  "./icon.svg"
 ];
 
 self.addEventListener("install", (event) => {
