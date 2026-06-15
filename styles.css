@@ -626,6 +626,21 @@ textarea {
   padding: 12px;
 }
 
+.danger-zone {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  border: 1px solid #f0c8c1;
+  border-radius: 8px;
+  background: #fff7f5;
+  padding: 12px;
+}
+
+.danger-zone h3 {
+  margin: 0;
+  color: var(--bad);
+}
+
 .empty {
   display: grid;
   place-items: center;
