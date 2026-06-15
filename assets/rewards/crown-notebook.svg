@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Crown Notebook</title>
+  <desc id="desc">Original anime-style reward notebook character with a crown.</desc>
+  <defs>
+    <linearGradient id="bg" x1="74" y1="51" x2="436" y2="452" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D8F4FF"/>
+      <stop offset="1" stop-color="#FFE1CF"/>
+    </linearGradient>
+    <linearGradient id="cover" x1="156" y1="133" x2="358" y2="408" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9BE5F0"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="226" fill="url(#bg)"/>
+  <path d="M138 392c28 35 70 55 126 60 58 5 104-11 137-47-40 9-85 9-134 0-55-9-98-14-129-13Z" fill="#F08E88" opacity=".18"/>
+  <path d="m185 92 35 38 36-48 36 48 36-38 16 86H169l16-86Z" fill="#FFD866" stroke="#24575A" stroke-width="11" stroke-linejoin="round"/>
+  <rect x="150" y="151" width="216" height="267" rx="34" fill="url(#cover)" stroke="#24575A" stroke-width="12"/>
+  <path d="M188 151v267" stroke="#24575A" stroke-width="9" opacity=".45"/>
+  <path d="M219 203h97M219 242h97M219 281h68" stroke="#65B7C8" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="227" cy="324" r="15" fill="#24575A"/>
+  <circle cx="293" cy="324" r="15" fill="#24575A"/>
+  <circle cx="222" cy="318" r="5" fill="#fff"/>
+  <circle cx="288" cy="318" r="5" fill="#fff"/>
+  <path d="M240 367c14 11 31 11 46 0" fill="none" stroke="#24575A" stroke-width="9" stroke-linecap="round"/>
+  <path d="M151 275c-32 2-58 15-77 38" fill="none" stroke="#24575A" stroke-width="12" stroke-linecap="round"/>
+  <path d="M365 277c32 2 58 17 78 43" fill="none" stroke="#24575A" stroke-width="12" stroke-linecap="round"/>
+  <path d="M118 302c-14 13-20 29-19 47 19-2 35-10 46-25" fill="#FFB18B" stroke="#24575A" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M395 307c15 13 23 29 23 48-20-1-36-8-49-23" fill="#FFB18B" stroke="#24575A" stroke-width="9" stroke-linejoin="round"/>
+  <circle cx="215" cy="352" r="12" fill="#FF9FB3" opacity=".75"/>
+  <circle cx="307" cy="352" r="12" fill="#FF9FB3" opacity=".75"/>
+</svg>
