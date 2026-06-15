@@ -11,9 +11,23 @@
 - 例文モード: 日本語例文を見て英文を入力します。
 - 英単語モード: 日本語の意味を見て英単語を入力します。ヒントは1文字ずつ表示されます。
 - 今日の英単語: 学習状況から選ばれた英単語を、紙に手書きするテスト形式で練習できます。
-- 写真答え合わせ: 今日の英単語の解答ページで、番号付きの手書き答案写真をブラウザ内OCRで読み取れます。
+- 写真答え合わせ: 今日の英単語の解答ページで、番号付きの手書き答案写真をCloudflare Worker経由で読み取れます。
 
-写真答え合わせはTesseract.jsをCDNから読み込むため、初回利用時はネット接続が必要です。答案は `1 apple`、`2 reserve` のように番号付きで縦に書くと照合しやすくなります。
+写真答え合わせはOpenAI APIを使うため、Cloudflare Workerの設定とAPIキー登録が必要です。答案は `1 apple`、`2 reserve` のように番号付きで縦に書くと照合しやすくなります。
+
+## Cloudflare Worker
+
+`worker/` に手書き認識用のCloudflare Workerがあります。
+
+```powershell
+cd worker
+npm install
+npx wrangler deploy
+npx wrangler secret put OPENAI_API_KEY
+npx wrangler secret put ACCESS_TOKEN
+```
+
+Worker URLの末尾に `/recognize-handwriting` を付けたURLと、`ACCESS_TOKEN` の値をアプリ内の「写真で答え合わせ」設定欄に保存してください。APIキーや `.dev.vars` はGitHubに入れないでください。
 
 ## CSV/TSV形式
 
