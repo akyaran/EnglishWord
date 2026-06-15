@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.2.1";
+const APP_VERSION = "v1.3.0";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 
@@ -24,6 +24,7 @@ let dailyOcrStatus = "";
 let dailyOcrBusy = false;
 let recognitionApiUrl = localStorage.getItem(RECOGNITION_API_KEY) || "";
 let recognitionToken = localStorage.getItem(RECOGNITION_TOKEN_KEY) || "";
+let wordGoalCelebration = null;
 
 const app = document.querySelector("#app");
 
@@ -55,7 +56,8 @@ function defaultState() {
     sessions: [],
     settings: {
       activeMode: "word",
-      newCardsPerDay: 20
+      newCardsPerDay: 20,
+      wordGoalCelebratedDate: null
     }
   };
 }
@@ -314,6 +316,7 @@ function updateSchedule(cardId, rating, wasCorrect, sessionOverrides = {}) {
     prompt: card?.ja || "",
     answer: card?.en || "",
     input: answerChecked?.input || "",
+    source: "study",
     rating,
     wasCorrect,
     hintsUsed: answerChecked?.hintsUsed || 0,
@@ -365,6 +368,7 @@ function finishDailyWords() {
     if (!rating) return;
     updateSchedule(card.id, rating, rating !== "again", {
       input: dailyWordInputs[card.id] || "手書き練習",
+      source: "dailyWords",
       hintsUsed: 0
     });
   });
@@ -377,6 +381,37 @@ function nextLikelyWords(limit = 3) {
     .slice()
     .sort((a, b) => wordPriority(b) - wordPriority(a))
     .slice(0, limit);
+}
+
+function wordStudyGoalStats() {
+  const todayKey = localDateKey();
+  const sessions = state.sessions.filter((session) =>
+    session.mode === "word" &&
+    (session.source || "study") === "study" &&
+    localDateKey(session.at) === todayKey
+  );
+  const mastered = sessions.filter((session) => session.rating === "good" || session.rating === "easy").length;
+  const total = sessions.length;
+  return {
+    total,
+    mastered,
+    accuracy: total ? Math.round((mastered / total) * 100) : 0,
+    achieved: mastered >= 5 || total >= 10
+  };
+}
+
+function maybeShowWordGoalCelebration() {
+  if (activeMode !== "word") return;
+  const todayKey = localDateKey();
+  if (state.settings.wordGoalCelebratedDate === todayKey) return;
+  const goalStats = wordStudyGoalStats();
+  if (!goalStats.achieved) return;
+  state.settings.wordGoalCelebratedDate = todayKey;
+  saveState();
+  wordGoalCelebration = {
+    ...goalStats,
+    suggestions: nextLikelyWords(3)
+  };
 }
 
 function cleanRecognizedWord(value) {
@@ -883,6 +918,8 @@ function renderDailyWordDone() {
 }
 
 function renderStudy(s) {
+  if (activeMode === "word" && wordGoalCelebration) return renderWordGoalCelebration();
+
   if (!modeCards(activeMode).length) {
     return `
       <section class="panel empty">
@@ -926,6 +963,44 @@ function renderStudy(s) {
           <div class="stat"><span>本日学習</span><strong>${s.todayReviewed}</strong></div>
           <div class="stat"><span>学習済み</span><strong>${s.learned}</strong></div>
           <div class="stat"><span>正答率</span><strong>${s.accuracy}%</strong></div>
+        </div>
+      </aside>
+    </section>
+  `;
+}
+
+function renderWordGoalCelebration() {
+  const suggestions = wordGoalCelebration.suggestions || [];
+  return `
+    <section class="grid two">
+      <div class="panel celebration-panel">
+        <div class="celebration-mark">✓</div>
+        <h2>今日の目標達成！</h2>
+        <p class="celebration-lead">英単語トレーニング、よく頑張りました。</p>
+        <div class="stats">
+          <div class="stat"><span>今日のテスト</span><strong>${wordGoalCelebration.total}</strong></div>
+          <div class="stat"><span>Good / Easy</span><strong>${wordGoalCelebration.mastered}</strong></div>
+          <div class="stat"><span>正解率</span><strong>${wordGoalCelebration.accuracy}%</strong></div>
+          <div class="stat"><span>達成</span><strong>OK</strong></div>
+        </div>
+        <div class="actions">
+          <button data-action="close-word-goal">続けて学習する</button>
+          <button class="secondary" data-tab="progress">履歴を見る</button>
+        </div>
+      </div>
+      <aside class="panel daily-panel">
+        <h2>明日出そうな単語</h2>
+        <p class="notice">明日出そうな単語：最低5回ずつ書いて練習してみよう！</p>
+        <div class="daily-word-list">
+          ${suggestions.length ? suggestions.map((card, index) => `
+            <article class="daily-word-item">
+              <span class="daily-number">${index + 1}</span>
+              <div class="daily-word-body">
+                <p><strong>${escapeHtml(card.ja)}</strong></p>
+                <p class="daily-answer">${escapeHtml(card.en)}</p>
+              </div>
+            </article>
+          `).join("") : `<div class="empty">おすすめできる単語がまだありません</div>`}
         </div>
       </aside>
     </section>
@@ -1212,6 +1287,7 @@ function bindEvents() {
   document.querySelectorAll("[data-rating]").forEach((button) => {
     button.addEventListener("click", () => {
       updateSchedule(currentCard.id, button.dataset.rating, answerChecked.correct);
+      maybeShowWordGoalCelebration();
       currentCard = pickCard();
       answerChecked = null;
       hintCount = 0;
@@ -1297,6 +1373,7 @@ function handleAction(event) {
   }
   if (action === "accept-auto-rating") {
     updateSchedule(currentCard.id, answerChecked.suggestedRating, answerChecked.correct);
+    maybeShowWordGoalCelebration();
     currentCard = pickCard();
     answerChecked = null;
     hintCount = 0;
@@ -1390,6 +1467,11 @@ function handleAction(event) {
   }
   if (action === "save-recognition-settings") {
     saveRecognitionSettings();
+  }
+  if (action === "close-word-goal") {
+    wordGoalCelebration = null;
+    currentCard = pickCard();
+    render();
   }
 }
 
