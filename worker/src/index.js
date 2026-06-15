@@ -74,18 +74,7 @@ function normalizeItems(items) {
     .slice(0, MAX_ITEMS);
 }
 
-async function recognizeWithOpenAI({ imageDataUrl, cards }, env) {
-  const model = env.OPENAI_MODEL || "gpt-4.1-mini";
-  const prompt = [
-    "You are reading a student's handwritten English vocabulary answer sheet.",
-    "The sheet should contain numbered answers such as '1 apple', '2 reserve'.",
-    "Return only compact JSON in this exact shape: {\"items\":[{\"index\":1,\"recognized\":\"apple\"}]}",
-    "Use the printed/handwritten question numbers. If an answer is blank or unreadable, omit it.",
-    "Do not grade. Do not add explanations.",
-    "Expected question list:",
-    ...cards.map((card, index) => `${index + 1}. Japanese: ${card.ja}; expected English: ${card.en}`)
-  ].join("\n");
-
+async function callOpenAI({ imageDataUrl, cards, model, prompt }, env) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -109,7 +98,39 @@ async function recognizeWithOpenAI({ imageDataUrl, cards }, env) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.error?.message || `OpenAI API error: ${response.status}`);
+    const message = payload.error?.message || `OpenAI API error: ${response.status}`;
+    const requestId = response.headers.get("x-request-id");
+    const error = new Error(requestId ? `${message} (request id: ${requestId})` : message);
+    error.status = response.status;
+    throw error;
+  }
+
+  return payload;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function recognizeWithOpenAI({ imageDataUrl, cards }, env) {
+  const model = env.OPENAI_MODEL || "gpt-4.1-mini";
+  const prompt = [
+    "You are reading a student's handwritten English vocabulary answer sheet.",
+    "The sheet should contain numbered answers such as '1 apple', '2 reserve'.",
+    "Return only compact JSON in this exact shape: {\"items\":[{\"index\":1,\"recognized\":\"apple\"}]}",
+    "Use the printed/handwritten question numbers. If an answer is blank or unreadable, omit it.",
+    "Do not grade. Do not add explanations.",
+    "Expected question list:",
+    ...cards.map((card, index) => `${index + 1}. Japanese: ${card.ja}; expected English: ${card.en}`)
+  ].join("\n");
+
+  let payload;
+  try {
+    payload = await callOpenAI({ imageDataUrl, cards, model, prompt }, env);
+  } catch (error) {
+    if (error.status && error.status < 500) throw error;
+    await wait(900);
+    payload = await callOpenAI({ imageDataUrl, cards, model, prompt }, env);
   }
 
   return normalizeItems(safeJsonFromText(parseOutputText(payload))?.items);
