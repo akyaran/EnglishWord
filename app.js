@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.1";
+const APP_VERSION = "v1.3.2";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 
@@ -382,6 +382,19 @@ function nextLikelyWords(limit = 3) {
     .slice()
     .sort((a, b) => wordPriority(b) - wordPriority(a))
     .slice(0, limit);
+}
+
+function resetLearningHistory() {
+  state.sessions = [];
+  state.reviews = {};
+  state.settings.wordGoalCelebratedDate = null;
+  state.cards.forEach((card) => reviewFor(card.id));
+  currentCard = null;
+  answerChecked = null;
+  hintCount = 0;
+  wordGoalCelebration = null;
+  selectedHistoryDate = localDateKey();
+  saveState();
 }
 
 function wordStudyGoalStats() {
@@ -1127,6 +1140,11 @@ function renderImport() {
           <button class="secondary" data-action="import-json">JSONを読み込む</button>
           <button class="secondary" data-action="export-json">JSONを書き出す</button>
         </div>
+        <div class="danger-zone">
+          <h3>学習履歴のリセット</h3>
+          <p class="muted">登録カードは残したまま、復習予定・正答率・日別履歴を消して最初から学習し直せます。</p>
+          <button class="danger" data-action="reset-learning-history">学習履歴を消す</button>
+        </div>
       </div>
     </section>
   `;
@@ -1471,6 +1489,13 @@ function handleAction(event) {
   if (action === "close-word-goal") {
     wordGoalCelebration = null;
     currentCard = pickCard();
+    render();
+  }
+  if (action === "reset-learning-history") {
+    if (!confirm("登録カードは残したまま、学習履歴と復習予定をすべて削除します。先にJSONを書き出しておくことをおすすめします。続けますか？")) return;
+    if (!confirm("この操作は元に戻せません。本当に学習履歴を消しますか？")) return;
+    resetLearningHistory();
+    alert("学習履歴をリセットしました。登録カードは残っています。");
     render();
   }
 }
