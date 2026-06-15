@@ -380,8 +380,11 @@ function nextLikelyWords(limit = 3) {
 }
 
 function cleanRecognizedWord(value) {
-  const match = String(value || "").match(/[A-Za-z][A-Za-z'\-]*/);
-  return match ? match[0] : "";
+  return String(value || "")
+    .replace(/^[\s\d\.\)\-:：]+/, "")
+    .replace(/[^A-Za-z'\-\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function parseNumberedAnswers(text) {
