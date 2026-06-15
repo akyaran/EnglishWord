@@ -29,6 +29,8 @@ npx wrangler secret put ACCESS_TOKEN
 
 Worker URLの末尾に `/recognize-handwriting` を付けたURLと、`ACCESS_TOKEN` の値をアプリ内の「写真で答え合わせ」設定欄に保存してください。APIキーや `.dev.vars` はGitHubに入れないでください。
 
+CloudflareのVariablesには `OPENAI_MODEL=gpt-4o-mini` を設定してください。認識でOpenAI側の一時エラーが出た場合、Workerは1回だけ自動リトライします。
+
 ## CSV/TSV形式
 
 共通の必須列は `ja` と `en` です。取り込み画面で、例文として入れるか英単語として入れるかを選びます。
