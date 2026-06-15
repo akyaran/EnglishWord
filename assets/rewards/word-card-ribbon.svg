@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Word Card Ribbon</title>
+  <desc id="desc">Original anime-style reward flashcard character with ribbons.</desc>
+  <defs>
+    <linearGradient id="bg" x1="68" y1="54" x2="438" y2="450" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE8EE"/>
+      <stop offset="1" stop-color="#DFF9E8"/>
+    </linearGradient>
+    <linearGradient id="card" x1="153" y1="130" x2="359" y2="392" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFF6D8"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="226" fill="url(#bg)"/>
+  <path d="M113 389c38 41 84 63 139 66 65 4 116-15 154-57-40 9-86 7-138-5-62-13-114-15-155-4Z" fill="#74C6A2" opacity=".2"/>
+  <path d="M153 132h206c20 0 37 17 37 37v193c0 20-17 37-37 37H153c-20 0-37-17-37-37V169c0-20 17-37 37-37Z" fill="url(#card)" stroke="#24575A" stroke-width="12"/>
+  <path d="M163 190h184M163 229h143" stroke="#9DD6BE" stroke-width="13" stroke-linecap="round"/>
+  <path d="m116 219-55-33 63-16 28-58 33 55 63 9-42 48 11 63-58-25-55 31 12-74Z" fill="#FF9DB8" stroke="#24575A" stroke-width="9" stroke-linejoin="round"/>
+  <path d="m398 216 55-33-63-16-28-58-33 55-63 9 42 48-11 63 58-25 55 31-12-74Z" fill="#9CDCE6" stroke="#24575A" stroke-width="9" stroke-linejoin="round"/>
+  <circle cx="221" cy="290" r="15" fill="#24575A"/>
+  <circle cx="291" cy="290" r="15" fill="#24575A"/>
+  <circle cx="216" cy="284" r="5" fill="#fff"/>
+  <circle cx="286" cy="284" r="5" fill="#fff"/>
+  <path d="M238 339c13 12 31 12 44 0" fill="none" stroke="#24575A" stroke-width="9" stroke-linecap="round"/>
+  <path d="M118 317c-29 8-50 25-64 53" fill="none" stroke="#24575A" stroke-width="12" stroke-linecap="round"/>
+  <path d="M394 317c29 8 50 25 64 53" fill="none" stroke="#24575A" stroke-width="12" stroke-linecap="round"/>
+  <path d="M164 399h184l-20 51H184l-20-51Z" fill="#F7B35E" stroke="#24575A" stroke-width="10" stroke-linejoin="round"/>
+  <circle cx="209" cy="319" r="12" fill="#FFB3C5" opacity=".75"/>
+  <circle cx="303" cy="319" r="12" fill="#FFB3C5" opacity=".75"/>
+</svg>
