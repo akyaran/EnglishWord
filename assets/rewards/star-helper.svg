@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Star Helper</title>
+  <desc id="desc">Original anime-style reward character holding a star wand.</desc>
+  <defs>
+    <linearGradient id="bg" x1="86" y1="44" x2="438" y2="456" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF2A8"/>
+      <stop offset="1" stop-color="#B7F0DE"/>
+    </linearGradient>
+    <linearGradient id="body" x1="175" y1="138" x2="342" y2="368" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D8FFF3"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="226" fill="url(#bg)"/>
+  <path d="M82 354c49 68 112 102 189 102 69 0 123-24 160-72-28 12-60 18-95 18-98 0-180-35-254-48Z" fill="#5CB8A7" opacity=".18"/>
+  <path d="m262 54 22 46 50 7-36 35 9 50-45-24-45 24 9-50-36-35 50-7 22-46Z" fill="#FFD75E" stroke="#24575A" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M169 244c0-70 38-120 89-120s89 50 89 120v74c0 61-40 102-89 102s-89-41-89-102v-74Z" fill="url(#body)" stroke="#24575A" stroke-width="12"/>
+  <path d="M179 221c22-48 58-72 109-72 22 0 41 6 57 17-12-36-45-61-86-61-54 0-94 40-94 98 0 8 1 14 2 20 4-1 8-2 12-2Z" fill="#54B9C3"/>
+  <circle cx="222" cy="264" r="15" fill="#24575A"/>
+  <circle cx="296" cy="264" r="15" fill="#24575A"/>
+  <circle cx="216" cy="256" r="5" fill="#fff"/>
+  <circle cx="290" cy="256" r="5" fill="#fff"/>
+  <path d="M234 317c14 14 34 14 48 0" fill="none" stroke="#24575A" stroke-width="10" stroke-linecap="round"/>
+  <path d="M164 297c-35 10-60 30-74 60" fill="none" stroke="#24575A" stroke-width="12" stroke-linecap="round"/>
+  <path d="M351 296c31 7 56 24 75 51" fill="none" stroke="#24575A" stroke-width="12" stroke-linecap="round"/>
+  <path d="m90 356 42 17-34 30 3-46-39-23 43-12 10-44 25 38 46-5-29 36 19 42-43-16-34 30Z" fill="#FFB44F" stroke="#24575A" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M218 397h80l22 42H196l22-42Z" fill="#FF8FB3" stroke="#24575A" stroke-width="10" stroke-linejoin="round"/>
+  <circle cx="185" cy="303" r="13" fill="#FFB3C5" opacity=".75"/>
+  <circle cx="331" cy="303" r="13" fill="#FFB3C5" opacity=".75"/>
+</svg>
