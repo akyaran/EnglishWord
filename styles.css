@@ -527,6 +527,17 @@ textarea {
   color: var(--ink);
 }
 
+.input-with-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.input-with-action button {
+  white-space: nowrap;
+}
+
 .daily-bars {
   margin-top: 12px;
 }
@@ -703,7 +714,8 @@ textarea {
   .stats,
   .form-grid,
   .score-buttons,
-  .count-options {
+  .count-options,
+  .input-with-action {
     grid-template-columns: 1fr;
   }
 
