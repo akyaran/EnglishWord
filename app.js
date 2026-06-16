@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.5";
+const APP_VERSION = "v1.3.6";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 const REWARD_IMAGE_BASE = "./assets/rewards/";
@@ -1006,7 +1006,21 @@ function renderDailyWordAnswerItem(card, index) {
         <p><strong>${escapeHtml(card.ja)}</strong></p>
         <p class="daily-answer">${escapeHtml(card.en)}</p>
         <label class="recognized-answer">読み取り結果
-          <input value="${escapeHtml(dailyWordInputs[card.id] || "")}" data-daily-input="${card.id}" placeholder="例: ${escapeHtml(card.en)}" />
+          <span class="input-with-action">
+            <input
+              id="daily-input-${escapeHtml(card.id)}"
+              value="${escapeHtml(dailyWordInputs[card.id] || "")}"
+              data-daily-input="${card.id}"
+              placeholder="例: ${escapeHtml(card.en)}"
+              lang="en"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="none"
+              spellcheck="false"
+              inputmode="text"
+            />
+            <button class="secondary" data-action="focus-daily-voice" data-card-id="${escapeHtml(card.id)}">音声入力</button>
+          </span>
         </label>
         <div class="score-buttons compact">
           ${Object.entries(ratingLabels).map(([rating, label]) => `
@@ -1071,9 +1085,10 @@ function renderStudy(s) {
     <section class="grid two">
       <div class="panel prompt">
         <div class="prompt-ja">${escapeHtml(card.ja)}</div>
-        <textarea class="answer-input" id="answer" placeholder="${activeMode === "word" ? "英単語を入力" : "英文を入力"}" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="text" ${result ? "disabled" : ""}>${escapeHtml(result?.input || "")}</textarea>
+        <textarea class="answer-input" id="answer" placeholder="${activeMode === "word" ? "英単語を入力" : "英文を入力"}" lang="en" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="text" ${result ? "disabled" : ""}>${escapeHtml(result?.input || "")}</textarea>
         <div class="actions">
           <button data-action="check-answer" ${result ? "disabled" : ""}>答え合わせ</button>
+          <button class="secondary" data-action="focus-answer-voice" ${result ? "disabled" : ""}>音声入力</button>
           <button class="secondary" data-action="clear-answer" ${result ? "disabled" : ""}>クリア</button>
           <button class="secondary" data-action="show-hint" ${result || hintCount >= totalHints ? "disabled" : ""}>ヒント</button>
           <button class="secondary" data-action="skip-card">次の問題</button>
@@ -1382,6 +1397,16 @@ function downloadText(filename, text, type) {
   URL.revokeObjectURL(url);
 }
 
+function focusTextInput(element) {
+  if (!element) return;
+  element.focus({ preventScroll: true });
+  const valueLength = element.value?.length || 0;
+  if (typeof element.setSelectionRange === "function") {
+    element.setSelectionRange(valueLength, valueLength);
+  }
+  element.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+
 function bindEvents() {
   document.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1425,6 +1450,9 @@ function bindEvents() {
   });
 
   document.querySelectorAll("[data-daily-input]").forEach((input) => {
+    input.addEventListener("input", () => {
+      updateDailyWordInput(input.dataset.dailyInput, input.value);
+    });
     input.addEventListener("change", () => {
       updateDailyWordInput(input.dataset.dailyInput, input.value);
       render();
@@ -1513,6 +1541,12 @@ function handleAction(event) {
       answer.value = "";
       answer.focus();
     }
+  }
+  if (action === "focus-answer-voice") {
+    focusTextInput(document.querySelector("#answer"));
+  }
+  if (action === "focus-daily-voice") {
+    focusTextInput(document.getElementById(`daily-input-${event.currentTarget.dataset.cardId}`));
   }
   if (action === "show-hint") {
     hintCount = Math.min(totalHintCount(currentCard), hintCount + 1);
