@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.7";
+const APP_VERSION = "v1.3.8";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 const REWARD_IMAGE_BASE = "./assets/rewards/";
@@ -162,6 +162,13 @@ function normalizeAnswer(value) {
     .trim();
 }
 
+function trimFinalPeriod(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[.。]\s*$/, "")
+    .trim();
+}
+
 function compactLetters(value) {
   return normalizeAnswer(value).replace(/\s+/g, "");
 }
@@ -230,6 +237,8 @@ function letterAccuracy(input, expected, hintsUsed = 0) {
 function suggestRating(input, expected, inputNorm, expectedNorm, mode, hintsUsed = 0) {
   const inputTrimmed = String(input || "").trim();
   const expectedTrimmed = String(expected || "").trim();
+  const inputWithoutFinalPeriod = trimFinalPeriod(input);
+  const expectedWithoutFinalPeriod = trimFinalPeriod(expected);
   if (!inputNorm) return "again";
 
   if (mode === "word") {
@@ -249,7 +258,7 @@ function suggestRating(input, expected, inputNorm, expectedNorm, mode, hintsUsed
     if (adjustedWords >= 0.75) return "hard";
     return "again";
   }
-  if (inputTrimmed === expectedTrimmed) return "easy";
+  if (inputTrimmed === expectedTrimmed || inputWithoutFinalPeriod === expectedWithoutFinalPeriod) return "easy";
   if (inputNorm === expectedNorm) return "good";
 
   const closeByText = similarity(inputNorm, expectedNorm);
