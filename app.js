@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.6";
+const APP_VERSION = "v1.3.7";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 const REWARD_IMAGE_BASE = "./assets/rewards/";
@@ -36,6 +36,7 @@ const state = loadState();
 let activeTab = "study";
 let activeMode = state.settings.activeMode || "word";
 let currentCard = null;
+let answerDraft = "";
 let answerChecked = null;
 let hintCount = 0;
 let editingId = null;
@@ -53,6 +54,8 @@ let dailyOcrBusy = false;
 let recognitionApiUrl = localStorage.getItem(RECOGNITION_API_KEY) || "";
 let recognitionToken = localStorage.getItem(RECOGNITION_TOKEN_KEY) || "";
 let recognitionSettingsStatus = "";
+let voiceInputStatus = "";
+let voiceInputTarget = "";
 let wordGoalCelebration = null;
 
 const app = document.querySelector("#app");
@@ -420,6 +423,7 @@ function resetLearningHistory() {
   state.settings.wordGoalCelebratedDate = null;
   state.cards.forEach((card) => reviewFor(card.id));
   currentCard = null;
+  answerDraft = "";
   answerChecked = null;
   hintCount = 0;
   wordGoalCelebration = null;
@@ -807,6 +811,18 @@ function modeSwitch() {
   `;
 }
 
+function micIcon(label = "音声入力") {
+  return `
+    <svg class="mic-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"></path>
+      <path d="M5 11a7 7 0 0 0 14 0"></path>
+      <path d="M12 18v3"></path>
+      <path d="M8 21h8"></path>
+    </svg>
+    <span class="sr-only">${escapeHtml(label)}</span>
+  `;
+}
+
 function render() {
   const s = stats();
   app.innerHTML = `
@@ -1019,9 +1035,10 @@ function renderDailyWordAnswerItem(card, index) {
               spellcheck="false"
               inputmode="text"
             />
-            <button class="secondary" data-action="focus-daily-voice" data-card-id="${escapeHtml(card.id)}">音声入力</button>
+            <button class="secondary icon mic-button" title="音声入力" data-action="start-daily-voice" data-card-id="${escapeHtml(card.id)}">${micIcon()}</button>
           </span>
         </label>
+        ${voiceInputStatus && voiceInputTarget === card.id ? `<div class="voice-status">${escapeHtml(voiceInputStatus)}</div>` : ""}
         <div class="score-buttons compact">
           ${Object.entries(ratingLabels).map(([rating, label]) => `
             <button class="${selected === rating ? "" : "secondary"}" data-daily-rating="${rating}" data-card-id="${card.id}">${label}</button>
@@ -1085,14 +1102,15 @@ function renderStudy(s) {
     <section class="grid two">
       <div class="panel prompt">
         <div class="prompt-ja">${escapeHtml(card.ja)}</div>
-        <textarea class="answer-input" id="answer" placeholder="${activeMode === "word" ? "英単語を入力" : "英文を入力"}" lang="en" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="text" ${result ? "disabled" : ""}>${escapeHtml(result?.input || "")}</textarea>
+        <textarea class="answer-input" id="answer" placeholder="${activeMode === "word" ? "英単語を入力" : "英文を入力"}" lang="en" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="text" ${result ? "disabled" : ""}>${escapeHtml(result?.input || answerDraft)}</textarea>
         <div class="actions">
           <button data-action="check-answer" ${result ? "disabled" : ""}>答え合わせ</button>
-          <button class="secondary" data-action="focus-answer-voice" ${result ? "disabled" : ""}>音声入力</button>
+          <button class="secondary icon mic-button" title="音声入力" data-action="start-answer-voice" ${result ? "disabled" : ""}>${micIcon()}</button>
           <button class="secondary" data-action="clear-answer" ${result ? "disabled" : ""}>クリア</button>
           <button class="secondary" data-action="show-hint" ${result || hintCount >= totalHints ? "disabled" : ""}>ヒント</button>
           <button class="secondary" data-action="skip-card">次の問題</button>
         </div>
+        ${voiceInputStatus && voiceInputTarget === "answer" ? `<div class="voice-status">${escapeHtml(voiceInputStatus)}</div>` : ""}
         ${hintCount ? `
           <div class="hint-box">
             <span>ヒント ${hintCount}${activeMode === "word" ? "文字" : "語"}</span>
@@ -1407,11 +1425,72 @@ function focusTextInput(element) {
   element.scrollIntoView({ block: "center", behavior: "smooth" });
 }
 
+function speechRecognitionConstructor() {
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+function startVoiceInput(element, options = {}) {
+  if (!element) return;
+  const SpeechRecognition = speechRecognitionConstructor();
+  voiceInputTarget = options.cardId || options.target || "";
+  focusTextInput(element);
+
+  if (!SpeechRecognition) {
+    voiceInputStatus = "この環境ではアプリ内のマイク認識に対応していません。キーボードのマイクボタンを使って入力してください。";
+    render();
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = "en-US";
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  voiceInputStatus = "聞き取り中です。英語で答えを話してください。";
+
+  recognition.onresult = (event) => {
+    const transcript = Array.from(event.results)
+      .map((result) => result[0]?.transcript || "")
+      .join(" ")
+      .trim();
+    if (!transcript) {
+      voiceInputStatus = "音声を文字にできませんでした。もう一度試してください。";
+      render();
+      return;
+    }
+    element.value = transcript;
+    if (options.target === "answer") answerDraft = transcript;
+    if (options.cardId) updateDailyWordInput(options.cardId, transcript);
+    voiceInputStatus = `認識しました: ${transcript}`;
+    render();
+  };
+
+  recognition.onerror = () => {
+    voiceInputStatus = "音声入力を開始できませんでした。キーボードのマイクボタンでも入力できます。";
+    render();
+  };
+
+  recognition.onend = () => {
+    if (voiceInputStatus === "聞き取り中です。英語で答えを話してください。") {
+      voiceInputStatus = "";
+      render();
+    }
+  };
+
+  try {
+    recognition.start();
+    render();
+  } catch {
+    voiceInputStatus = "音声入力を開始できませんでした。もう一度マイクボタンを押してください。";
+    render();
+  }
+}
+
 function bindEvents() {
   document.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => {
       activeMode = button.dataset.mode;
       currentCard = null;
+      answerDraft = "";
       answerChecked = null;
       hintCount = 0;
       editingId = null;
@@ -1423,6 +1502,7 @@ function bindEvents() {
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       activeTab = button.dataset.tab;
+      answerDraft = "";
       answerChecked = null;
       currentCard = null;
       hintCount = 0;
@@ -1440,6 +1520,10 @@ function bindEvents() {
 
   document.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", handleAction);
+  });
+
+  document.querySelector("#answer")?.addEventListener("input", (event) => {
+    answerDraft = event.currentTarget.value;
   });
 
   document.querySelectorAll("[data-daily-rating]").forEach((button) => {
@@ -1464,6 +1548,7 @@ function bindEvents() {
       updateSchedule(currentCard.id, button.dataset.rating, answerChecked.correct);
       maybeShowWordGoalCelebration();
       currentCard = pickCard();
+      answerDraft = "";
       answerChecked = null;
       hintCount = 0;
       render();
@@ -1531,22 +1616,25 @@ function handleAction(event) {
   const action = event.currentTarget.dataset.action;
   if (action === "check-answer") {
     const input = document.querySelector("#answer").value;
+    answerDraft = input;
     answerChecked = { input, ...gradeAnswer(input, currentCard.en, currentCard.mode || activeMode, hintCount) };
     hintCount = 0;
     render();
   }
   if (action === "clear-answer") {
     const answer = document.querySelector("#answer");
+    answerDraft = "";
     if (answer) {
       answer.value = "";
       answer.focus();
     }
   }
-  if (action === "focus-answer-voice") {
-    focusTextInput(document.querySelector("#answer"));
+  if (action === "start-answer-voice") {
+    startVoiceInput(document.querySelector("#answer"), { target: "answer" });
   }
-  if (action === "focus-daily-voice") {
-    focusTextInput(document.getElementById(`daily-input-${event.currentTarget.dataset.cardId}`));
+  if (action === "start-daily-voice") {
+    const cardId = event.currentTarget.dataset.cardId;
+    startVoiceInput(document.getElementById(`daily-input-${cardId}`), { cardId });
   }
   if (action === "show-hint") {
     hintCount = Math.min(totalHintCount(currentCard), hintCount + 1);
@@ -1556,12 +1644,14 @@ function handleAction(event) {
     updateSchedule(currentCard.id, answerChecked.suggestedRating, answerChecked.correct);
     maybeShowWordGoalCelebration();
     currentCard = pickCard();
+    answerDraft = "";
     answerChecked = null;
     hintCount = 0;
     render();
   }
   if (action === "skip-card") {
     currentCard = pickCard();
+    answerDraft = "";
     answerChecked = null;
     hintCount = 0;
     render();
@@ -1601,6 +1691,7 @@ function handleAction(event) {
       activeMode = state.settings.activeMode || "word";
       saveState();
       currentCard = null;
+      answerDraft = "";
       answerChecked = null;
       alert("JSONを読み込みました。");
       render();
@@ -1652,6 +1743,7 @@ function handleAction(event) {
   if (action === "close-word-goal") {
     wordGoalCelebration = null;
     currentCard = pickCard();
+    answerDraft = "";
     render();
   }
   if (action === "reset-learning-history") {
