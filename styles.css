@@ -88,6 +88,22 @@ button.icon {
   stroke-linejoin: round;
 }
 
+.speak-button {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.speaker-icon {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -366,6 +382,13 @@ textarea {
 .correct-answer {
   font-size: 1.05rem;
   font-weight: 850;
+}
+
+.answer-with-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .auto-rating {
