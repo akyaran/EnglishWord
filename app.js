@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.8";
+const APP_VERSION = "v1.3.9";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 const REWARD_IMAGE_BASE = "./assets/rewards/";
@@ -832,6 +832,21 @@ function micIcon(label = "音声入力") {
   `;
 }
 
+function speakerIcon(label = "読み上げ") {
+  return `
+    <svg class="speaker-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 9v6h4l5 4V5L8 9H4Z"></path>
+      <path d="M16 9a4 4 0 0 1 0 6"></path>
+      <path d="M18.5 6.5a7.5 7.5 0 0 1 0 11"></path>
+    </svg>
+    <span class="sr-only">${escapeHtml(label)}</span>
+  `;
+}
+
+function speakButton(text) {
+  return `<button class="secondary icon speak-button" title="読み上げ" data-action="speak-answer" data-speak="${escapeHtml(text)}">${speakerIcon()}</button>`;
+}
+
 function render() {
   const s = stats();
   app.innerHTML = `
@@ -1029,7 +1044,7 @@ function renderDailyWordAnswerItem(card, index) {
       <span class="daily-number">${index + 1}</span>
       <div class="daily-word-body">
         <p><strong>${escapeHtml(card.ja)}</strong></p>
-        <p class="daily-answer">${escapeHtml(card.en)}</p>
+        <p class="daily-answer answer-with-action"><span>${escapeHtml(card.en)}</span>${speakButton(card.en)}</p>
         <label class="recognized-answer">読み取り結果
           <span class="input-with-action">
             <input
@@ -1078,7 +1093,7 @@ function renderDailyWordDone() {
               <span class="daily-number">${index + 1}</span>
               <div class="daily-word-body">
                 <p><strong>${escapeHtml(card.ja)}</strong></p>
-                <p class="daily-answer">${escapeHtml(card.en)}</p>
+                <p class="daily-answer answer-with-action"><span>${escapeHtml(card.en)}</span>${speakButton(card.en)}</p>
               </div>
             </article>
           `).join("") : `<div class="empty">おすすめできる単語がまだありません</div>`}
@@ -1181,7 +1196,7 @@ function renderWordGoalCelebration() {
               <span class="daily-number">${index + 1}</span>
               <div class="daily-word-body">
                 <p><strong>${escapeHtml(card.ja)}</strong></p>
-                <p class="daily-answer">${escapeHtml(card.en)}</p>
+                <p class="daily-answer answer-with-action"><span>${escapeHtml(card.en)}</span>${speakButton(card.en)}</p>
               </div>
             </article>
           `).join("") : `<div class="empty">おすすめできる単語がまだありません</div>`}
@@ -1208,7 +1223,7 @@ function renderResult(card, result) {
       <strong>${result.correct ? "正解です" : "もう一歩です"}</strong>
       <div class="auto-rating">自動判定: <strong>${ratingLabels[result.suggestedRating]}</strong></div>
       ${result.hintsUsed ? `<div class="hint-note">ヒント使用: ${result.hintsUsed}回</div>` : ""}
-      <div class="correct-answer">${escapeHtml(card.en)}</div>
+      <div class="correct-answer answer-with-action"><span>${escapeHtml(card.en)}</span>${speakButton(card.en)}</div>
       <div class="diff">
         ${diff.map((part) => `<span class="${part.ok ? "" : "miss"}">${escapeHtml(part.word)}</span>`).join("")}
       </div>
@@ -1494,6 +1509,21 @@ function startVoiceInput(element, options = {}) {
   }
 }
 
+function speakEnglish(text) {
+  const phrase = String(text || "").trim();
+  if (!phrase) return;
+  if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+    alert("この環境では読み上げに対応していません。");
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(phrase);
+  utterance.lang = "en-US";
+  utterance.rate = 0.9;
+  utterance.pitch = 1;
+  window.speechSynthesis.speak(utterance);
+}
+
 function bindEvents() {
   document.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1644,6 +1674,9 @@ function handleAction(event) {
   if (action === "start-daily-voice") {
     const cardId = event.currentTarget.dataset.cardId;
     startVoiceInput(document.getElementById(`daily-input-${cardId}`), { cardId });
+  }
+  if (action === "speak-answer") {
+    speakEnglish(event.currentTarget.dataset.speak || "");
   }
   if (action === "show-hint") {
     hintCount = Math.min(totalHintCount(currentCard), hintCount + 1);
