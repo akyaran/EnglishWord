@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.9";
+const APP_VERSION = "v1.3.10";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 const REWARD_IMAGE_BASE = "./assets/rewards/";
@@ -56,6 +56,11 @@ let recognitionToken = localStorage.getItem(RECOGNITION_TOKEN_KEY) || "";
 let recognitionSettingsStatus = "";
 let voiceInputStatus = "";
 let voiceInputTarget = "";
+let voiceRecognition = null;
+let voiceShouldRestart = false;
+let voiceBaseText = "";
+let voiceFinalText = "";
+let voiceRestartTimer = null;
 let wordGoalCelebration = null;
 
 const app = document.querySelector("#app");
@@ -1062,7 +1067,7 @@ function renderDailyWordAnswerItem(card, index) {
             <button class="secondary icon mic-button" title="音声入力" data-action="start-daily-voice" data-card-id="${escapeHtml(card.id)}">${micIcon()}</button>
           </span>
         </label>
-        ${voiceInputStatus && voiceInputTarget === card.id ? `<div class="voice-status">${escapeHtml(voiceInputStatus)}</div>` : ""}
+        ${voiceInputStatus && voiceInputTarget === card.id ? `<div class="voice-status" data-voice-status>${escapeHtml(voiceInputStatus)}</div>` : ""}
         <div class="score-buttons compact">
           ${Object.entries(ratingLabels).map(([rating, label]) => `
             <button class="${selected === rating ? "" : "secondary"}" data-daily-rating="${rating}" data-card-id="${card.id}">${label}</button>
@@ -1134,7 +1139,7 @@ function renderStudy(s) {
           <button class="secondary" data-action="show-hint" ${result || hintCount >= totalHints ? "disabled" : ""}>ヒント</button>
           <button class="secondary" data-action="skip-card">次の問題</button>
         </div>
-        ${voiceInputStatus && voiceInputTarget === "answer" ? `<div class="voice-status">${escapeHtml(voiceInputStatus)}</div>` : ""}
+        ${voiceInputStatus && voiceInputTarget === "answer" ? `<div class="voice-status" data-voice-status>${escapeHtml(voiceInputStatus)}</div>` : ""}
         ${hintCount ? `
           <div class="hint-box">
             <span>ヒント ${hintCount}${activeMode === "word" ? "文字" : "語"}</span>
@@ -1453,10 +1458,109 @@ function speechRecognitionConstructor() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;
 }
 
+function setVoiceStatus(message) {
+  voiceInputStatus = message;
+  document.querySelectorAll("[data-voice-status]").forEach((status) => {
+    status.textContent = message;
+  });
+}
+
+function combinedVoiceText(interimText = "") {
+  return [voiceBaseText, voiceFinalText, interimText]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+function updateVoiceTargetValue(text) {
+  if (voiceInputTarget === "answer") {
+    const answer = document.querySelector("#answer");
+    if (answer) answer.value = text;
+    answerDraft = text;
+    return;
+  }
+  const input = document.getElementById(`daily-input-${voiceInputTarget}`);
+  if (input) input.value = text;
+  if (voiceInputTarget) updateDailyWordInput(voiceInputTarget, text);
+}
+
+function stopVoiceInput(message = "音声停止しました") {
+  voiceShouldRestart = false;
+  if (voiceRestartTimer) {
+    clearTimeout(voiceRestartTimer);
+    voiceRestartTimer = null;
+  }
+  const recognition = voiceRecognition;
+  voiceRecognition = null;
+  if (recognition) {
+    try {
+      recognition.stop();
+    } catch {}
+  }
+  voiceBaseText = "";
+  voiceFinalText = "";
+  if (message !== null) setVoiceStatus(message);
+}
+
+function startRecognitionSession(SpeechRecognition) {
+  const recognition = new SpeechRecognition();
+  voiceRecognition = recognition;
+  recognition.lang = "en-US";
+  recognition.interimResults = true;
+  recognition.continuous = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    setVoiceStatus("聞き取り中です。少し間が空いても続けて話せます。");
+  };
+
+  recognition.onresult = (event) => {
+    let interimText = "";
+    for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      const transcript = event.results[index][0]?.transcript || "";
+      if (event.results[index].isFinal) {
+        voiceFinalText = [voiceFinalText, transcript.trim()].filter(Boolean).join(" ");
+      } else {
+        interimText = [interimText, transcript.trim()].filter(Boolean).join(" ");
+      }
+    }
+    const nextText = combinedVoiceText(interimText);
+    updateVoiceTargetValue(nextText);
+    setVoiceStatus(interimText ? "聞き取り中です..." : "認識しました。続けて話せます。");
+  };
+
+  recognition.onerror = (event) => {
+    if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+      stopVoiceInput("音声入力が許可されませんでした。キーボードのマイク入力も使えます。");
+      return;
+    }
+    setVoiceStatus("音声入力が一時停止しました。再開を試みています...");
+  };
+
+  recognition.onend = () => {
+    voiceRecognition = null;
+    if (!voiceShouldRestart) return;
+    setVoiceStatus("無音で一時停止しました。再開中...");
+    voiceRestartTimer = setTimeout(() => {
+      if (voiceShouldRestart) startRecognitionSession(SpeechRecognition);
+    }, 350);
+  };
+
+  recognition.start();
+}
+
 function startVoiceInput(element, options = {}) {
   if (!element) return;
   const SpeechRecognition = speechRecognitionConstructor();
-  voiceInputTarget = options.cardId || options.target || "";
+  const nextTarget = options.cardId || options.target || "";
+
+  if (voiceShouldRestart || voiceRecognition) {
+    const isSameTarget = voiceInputTarget === nextTarget;
+    stopVoiceInput(isSameTarget ? "音声停止しました" : "");
+    if (isSameTarget) return;
+  }
+
+  voiceInputTarget = nextTarget;
   focusTextInput(element);
 
   if (!SpeechRecognition) {
@@ -1465,45 +1569,15 @@ function startVoiceInput(element, options = {}) {
     return;
   }
 
-  const recognition = new SpeechRecognition();
-  recognition.lang = "en-US";
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-  voiceInputStatus = "聞き取り中です。英語で答えを話してください。";
-
-  recognition.onresult = (event) => {
-    const transcript = Array.from(event.results)
-      .map((result) => result[0]?.transcript || "")
-      .join(" ")
-      .trim();
-    if (!transcript) {
-      voiceInputStatus = "音声を文字にできませんでした。もう一度試してください。";
-      render();
-      return;
-    }
-    element.value = transcript;
-    if (options.target === "answer") answerDraft = transcript;
-    if (options.cardId) updateDailyWordInput(options.cardId, transcript);
-    voiceInputStatus = `認識しました: ${transcript}`;
-    render();
-  };
-
-  recognition.onerror = () => {
-    voiceInputStatus = "音声入力を開始できませんでした。キーボードのマイクボタンでも入力できます。";
-    render();
-  };
-
-  recognition.onend = () => {
-    if (voiceInputStatus === "聞き取り中です。英語で答えを話してください。") {
-      voiceInputStatus = "";
-      render();
-    }
-  };
-
+  voiceShouldRestart = true;
+  voiceBaseText = element.value.trim();
+  voiceFinalText = "";
+  voiceInputStatus = "聞き取りを開始します...";
+  render();
   try {
-    recognition.start();
-    render();
+    startRecognitionSession(SpeechRecognition);
   } catch {
+    voiceShouldRestart = false;
     voiceInputStatus = "音声入力を開始できませんでした。もう一度マイクボタンを押してください。";
     render();
   }
@@ -1527,6 +1601,7 @@ function speakEnglish(text) {
 function bindEvents() {
   document.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => {
+      stopVoiceInput("");
       activeMode = button.dataset.mode;
       currentCard = null;
       answerDraft = "";
@@ -1540,6 +1615,7 @@ function bindEvents() {
 
   document.querySelectorAll("[data-tab]").forEach((button) => {
     button.addEventListener("click", () => {
+      stopVoiceInput("");
       activeTab = button.dataset.tab;
       answerDraft = "";
       answerChecked = null;
@@ -1654,6 +1730,7 @@ function bindEvents() {
 function handleAction(event) {
   const action = event.currentTarget.dataset.action;
   if (action === "check-answer") {
+    stopVoiceInput("");
     const input = document.querySelector("#answer").value;
     answerDraft = input;
     answerChecked = { input, ...gradeAnswer(input, currentCard.en, currentCard.mode || activeMode, hintCount) };
@@ -1683,6 +1760,7 @@ function handleAction(event) {
     render();
   }
   if (action === "accept-auto-rating") {
+    stopVoiceInput("");
     updateSchedule(currentCard.id, answerChecked.suggestedRating, answerChecked.correct);
     maybeShowWordGoalCelebration();
     currentCard = pickCard();
@@ -1692,6 +1770,7 @@ function handleAction(event) {
     render();
   }
   if (action === "skip-card") {
+    stopVoiceInput("");
     currentCard = pickCard();
     answerDraft = "";
     answerChecked = null;
@@ -1708,6 +1787,7 @@ function handleAction(event) {
       : "ja,en,section,tags\n私は毎朝英語を音読します。,I read English aloud every morning.,例文,習慣\n彼女は約束を守った。,She kept her promise.,例文,重要";
   }
   if (action === "import-csv") {
+    stopVoiceInput("");
     const rows = parseDelimited(document.querySelector("#csv-input").value);
     const added = importRows(rows, activeMode);
     alert(`${added}件を取り込みました。`);
@@ -1722,6 +1802,7 @@ function handleAction(event) {
     );
   }
   if (action === "import-json") {
+    stopVoiceInput("");
     const file = document.querySelector("#json-file")?.files?.[0];
     if (!file) {
       alert("JSONファイルを選択してください。");
@@ -1743,22 +1824,27 @@ function handleAction(event) {
     exportHistoryCsv(selectedHistoryDate);
   }
   if (action === "start-daily-words") {
+    stopVoiceInput("");
     startDailyWords(dailyWordCount);
     render();
   }
   if (action === "show-daily-answers") {
+    stopVoiceInput("");
     dailyWordStage = "answers";
     render();
   }
   if (action === "back-daily-questions") {
+    stopVoiceInput("");
     dailyWordStage = "questions";
     render();
   }
   if (action === "finish-daily-words") {
+    stopVoiceInput("");
     finishDailyWords();
     render();
   }
   if (action === "reset-daily-words") {
+    stopVoiceInput("");
     dailyWordCards = [];
     dailyWordStage = "setup";
     dailyWordRatings = {};
@@ -1783,12 +1869,14 @@ function handleAction(event) {
     saveRecognitionSettings();
   }
   if (action === "close-word-goal") {
+    stopVoiceInput("");
     wordGoalCelebration = null;
     currentCard = pickCard();
     answerDraft = "";
     render();
   }
   if (action === "reset-learning-history") {
+    stopVoiceInput("");
     if (!confirm("登録カードは残したまま、学習履歴と復習予定をすべて削除します。先にJSONを書き出しておくことをおすすめします。続けますか？")) return;
     if (!confirm("この操作は元に戻せません。本当に学習履歴を消しますか？")) return;
     resetLearningHistory();
