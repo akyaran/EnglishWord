@@ -489,6 +489,16 @@ textarea {
   gap: 10px;
 }
 
+.print-note {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #fffdf5;
+  color: var(--muted);
+  padding: 10px 12px;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
 .daily-word-item {
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
