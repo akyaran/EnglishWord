@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.10";
+const APP_VERSION = "v1.3.11";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 const REWARD_IMAGE_BASE = "./assets/rewards/";
@@ -943,9 +943,13 @@ function renderDailyWordQuestions() {
         </div>
         <div class="actions">
           <button class="secondary" data-action="reset-daily-words">作り直す</button>
+          <button class="secondary" data-action="export-daily-print-image">A4印刷画像を作る</button>
           <button data-action="show-daily-answers">解答を見る</button>
         </div>
       </header>
+      <div class="print-note">
+        A4画像は、問題・番号付き回答欄・練習する英単語を1枚にまとめます。書いた紙を写真で撮ると、解答ページの写真読み取りで答え合わせできます。
+      </div>
       <div class="daily-word-list questions-only">
         ${dailyWordCards.map((card, index) => `
           <article class="daily-word-item">
@@ -1444,6 +1448,166 @@ function downloadText(filename, text, type) {
   URL.revokeObjectURL(url);
 }
 
+function downloadDataUrl(filename, dataUrl) {
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = filename;
+  link.click();
+}
+
+function wrapCanvasText(context, text, maxWidth) {
+  const chars = Array.from(String(text || ""));
+  const lines = [];
+  let line = "";
+  chars.forEach((char) => {
+    const next = line + char;
+    if (line && context.measureText(next).width > maxWidth) {
+      lines.push(line);
+      line = char;
+    } else {
+      line = next;
+    }
+  });
+  if (line) lines.push(line);
+  return lines;
+}
+
+function drawRoundedRect(context, x, y, width, height, radius) {
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.lineTo(x + width - radius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + radius);
+  context.lineTo(x + width, y + height - radius);
+  context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+  context.lineTo(x + radius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - radius);
+  context.lineTo(x, y + radius);
+  context.quadraticCurveTo(x, y, x + radius, y);
+  context.closePath();
+}
+
+function drawA4PrintSheet(cards) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1240;
+  canvas.height = 1754;
+  const context = canvas.getContext("2d");
+  const margin = 64;
+  const contentWidth = canvas.width - margin * 2;
+  const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+  const count = Math.max(1, cards.length);
+  const testTop = 210;
+  const testHeight = count <= 5 ? 520 : count <= 10 ? 650 : 760;
+  const answerGap = count <= 5 ? 58 : count <= 10 ? 44 : 32;
+  const questionGap = count <= 5 ? 76 : count <= 10 ? 58 : 42;
+
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  context.fillStyle = "#24575a";
+  context.font = "700 40px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.fillText("今日の英単語 テストシート", margin, 88);
+  context.font = "24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.fillStyle = "#5d6d6c";
+  context.fillText(`${today} / ${cards.length}問`, margin, 126);
+  context.fillText("答えは番号の右に英語で書いてください。写真読み取り用に、番号が見えるように書くと認識しやすくなります。", margin, 164);
+
+  context.strokeStyle = "#cfdcda";
+  context.lineWidth = 3;
+  drawRoundedRect(context, margin, testTop, contentWidth, testHeight, 18);
+  context.stroke();
+  context.fillStyle = "#eef7f4";
+  drawRoundedRect(context, margin, testTop, contentWidth, 62, 18);
+  context.fill();
+  context.fillStyle = "#24575a";
+  context.font = "700 28px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.fillText("問題と回答欄", margin + 24, testTop + 40);
+
+  const columnWidth = (contentWidth - 36) / 2;
+  cards.forEach((card, index) => {
+    const column = cards.length > 10 && index >= Math.ceil(cards.length / 2) ? 1 : 0;
+    const row = column ? index - Math.ceil(cards.length / 2) : index;
+    const x = margin + 24 + column * (columnWidth + 36);
+    const y = testTop + 102 + row * questionGap;
+    const number = `${index + 1}.`;
+
+    context.fillStyle = "#24575a";
+    context.font = "700 24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    context.fillText(number, x, y);
+    context.fillStyle = "#1f2f2e";
+    context.font = "24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    const lines = wrapCanvasText(context, card.ja, columnWidth - 52).slice(0, cards.length > 10 ? 1 : 2);
+    lines.forEach((line, lineIndex) => context.fillText(line, x + 44, y + lineIndex * 26));
+
+    const lineY = y + (cards.length > 10 ? 24 : 38);
+    context.strokeStyle = "#8db5b0";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(x, lineY);
+    context.lineTo(x + columnWidth - 8, lineY);
+    context.stroke();
+    context.fillStyle = "#95a5a3";
+    context.font = "18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    context.fillText(`${index + 1}`, x + 4, lineY - 6);
+  });
+
+  const practiceTop = testTop + testHeight + 48;
+  const practiceHeight = canvas.height - practiceTop - margin;
+  context.strokeStyle = "#cfdcda";
+  context.lineWidth = 3;
+  drawRoundedRect(context, margin, practiceTop, contentWidth, practiceHeight, 18);
+  context.stroke();
+  context.fillStyle = "#fff8e7";
+  drawRoundedRect(context, margin, practiceTop, contentWidth, 62, 18);
+  context.fill();
+  context.fillStyle = "#24575a";
+  context.font = "700 28px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.fillText("練習する英単語", margin + 24, practiceTop + 40);
+  context.fillStyle = "#5d6d6c";
+  context.font = "20px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.fillText("下の単語を最低5回ずつ書いて練習しよう。", margin + 280, practiceTop + 40);
+
+  const practiceRows = Math.ceil(cards.length / 2);
+  const practiceGap = Math.min(86, Math.max(44, (practiceHeight - 100) / practiceRows));
+  cards.forEach((card, index) => {
+    const column = index >= Math.ceil(cards.length / 2) ? 1 : 0;
+    const row = column ? index - Math.ceil(cards.length / 2) : index;
+    const x = margin + 24 + column * (columnWidth + 36);
+    const y = practiceTop + 104 + row * practiceGap;
+
+    context.fillStyle = "#24575a";
+    context.font = "700 23px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    context.fillText(`${index + 1}. ${card.en}`, x, y);
+    context.fillStyle = "#5d6d6c";
+    context.font = "18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    const jaLines = wrapCanvasText(context, card.ja, columnWidth - 12).slice(0, 1);
+    if (jaLines[0]) context.fillText(jaLines[0], x, y + 24);
+    context.strokeStyle = "#ead39f";
+    context.lineWidth = 2;
+    for (let line = 0; line < 3; line += 1) {
+      const lineY = y + 44 + line * 22;
+      context.beginPath();
+      context.moveTo(x, lineY);
+      context.lineTo(x + columnWidth - 8, lineY);
+      context.stroke();
+    }
+  });
+
+  context.fillStyle = "#7a8b89";
+  context.font = "18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.fillText("English Word Trainer", margin, canvas.height - 24);
+  return canvas;
+}
+
+function exportDailyPrintImage() {
+  if (!dailyWordCards.length) {
+    alert("今日のテストを作ってからA4画像を出力してください。");
+    return;
+  }
+  const canvas = drawA4PrintSheet(dailyWordCards);
+  const dateKey = localDateKey();
+  downloadDataUrl(`today-english-words-${dateKey}.png`, canvas.toDataURL("image/png"));
+}
+
 function focusTextInput(element) {
   if (!element) return;
   element.focus({ preventScroll: true });
@@ -1832,6 +1996,9 @@ function handleAction(event) {
     stopVoiceInput("");
     dailyWordStage = "answers";
     render();
+  }
+  if (action === "export-daily-print-image") {
+    exportDailyPrintImage();
   }
   if (action === "back-daily-questions") {
     stopVoiceInput("");
