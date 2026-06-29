@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.11";
+const APP_VERSION = "v1.3.12";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 const REWARD_IMAGE_BASE = "./assets/rewards/";
@@ -1497,7 +1497,6 @@ function drawA4PrintSheet(cards) {
   const count = Math.max(1, cards.length);
   const testTop = 210;
   const testHeight = count <= 5 ? 520 : count <= 10 ? 650 : 760;
-  const answerGap = count <= 5 ? 58 : count <= 10 ? 44 : 32;
   const questionGap = count <= 5 ? 76 : count <= 10 ? 58 : 42;
 
   context.fillStyle = "#ffffff";
@@ -1526,28 +1525,32 @@ function drawA4PrintSheet(cards) {
   cards.forEach((card, index) => {
     const column = cards.length > 10 && index >= Math.ceil(cards.length / 2) ? 1 : 0;
     const row = column ? index - Math.ceil(cards.length / 2) : index;
+    const rowWidth = cards.length > 10 ? columnWidth : contentWidth - 48;
     const x = margin + 24 + column * (columnWidth + 36);
     const y = testTop + 102 + row * questionGap;
     const number = `${index + 1}.`;
+    const questionWidth = cards.length > 10 ? rowWidth * 0.46 : rowWidth * 0.48;
+    const answerX = x + questionWidth + 54;
+    const answerWidth = rowWidth - questionWidth - 62;
 
     context.fillStyle = "#24575a";
     context.font = "700 24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
     context.fillText(number, x, y);
     context.fillStyle = "#1f2f2e";
-    context.font = "24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-    const lines = wrapCanvasText(context, card.ja, columnWidth - 52).slice(0, cards.length > 10 ? 1 : 2);
+    context.font = cards.length > 10 ? "21px system-ui, -apple-system, BlinkMacSystemFont, sans-serif" : "24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+    const lines = wrapCanvasText(context, card.ja, questionWidth).slice(0, cards.length > 10 ? 1 : 2);
     lines.forEach((line, lineIndex) => context.fillText(line, x + 44, y + lineIndex * 26));
 
-    const lineY = y + (cards.length > 10 ? 24 : 38);
+    const lineY = y + 4;
     context.strokeStyle = "#8db5b0";
     context.lineWidth = 2;
     context.beginPath();
-    context.moveTo(x, lineY);
-    context.lineTo(x + columnWidth - 8, lineY);
+    context.moveTo(answerX, lineY);
+    context.lineTo(answerX + answerWidth, lineY);
     context.stroke();
     context.fillStyle = "#95a5a3";
     context.font = "18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-    context.fillText(`${index + 1}`, x + 4, lineY - 6);
+    context.fillText(`${index + 1}`, answerX + 4, lineY - 8);
   });
 
   const practiceTop = testTop + testHeight + 48;
@@ -1564,13 +1567,14 @@ function drawA4PrintSheet(cards) {
   context.fillText("練習する英単語", margin + 24, practiceTop + 40);
   context.fillStyle = "#5d6d6c";
   context.font = "20px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  context.fillText("下の単語を最低5回ずつ書いて練習しよう。", margin + 280, practiceTop + 40);
+  const practiceCards = cards.slice(0, Math.ceil(cards.length / 2));
+  context.fillText(`${practiceCards.length}個を最低5回ずつ書いて練習しよう。`, margin + 280, practiceTop + 40);
 
-  const practiceRows = Math.ceil(cards.length / 2);
+  const practiceRows = Math.ceil(practiceCards.length / 2);
   const practiceGap = Math.min(86, Math.max(44, (practiceHeight - 100) / practiceRows));
-  cards.forEach((card, index) => {
-    const column = index >= Math.ceil(cards.length / 2) ? 1 : 0;
-    const row = column ? index - Math.ceil(cards.length / 2) : index;
+  practiceCards.forEach((card, index) => {
+    const column = index >= Math.ceil(practiceCards.length / 2) ? 1 : 0;
+    const row = column ? index - Math.ceil(practiceCards.length / 2) : index;
     const x = margin + 24 + column * (columnWidth + 36);
     const y = practiceTop + 104 + row * practiceGap;
 
