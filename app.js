@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.14";
+const APP_VERSION = "v1.3.15";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 const REWARD_IMAGE_BASE = "./assets/rewards/";
@@ -2070,7 +2070,9 @@ function handleAction(event) {
 }
 
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
-  navigator.serviceWorker.register("./sw.js").catch(() => {});
+  navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`).then((registration) => {
+    registration.update().catch(() => {});
+  }).catch(() => {});
 }
 
 loadRewardCharacters();
