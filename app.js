@@ -1,6 +1,6 @@
 const STORAGE_KEY = "english-word-trainer-state-v1";
 const VERSION = 2;
-const APP_VERSION = "v1.3.13";
+const APP_VERSION = "v1.3.14";
 const RECOGNITION_API_KEY = "english-word-recognition-api-url";
 const RECOGNITION_TOKEN_KEY = "english-word-recognition-token";
 const REWARD_IMAGE_BASE = "./assets/rewards/";
@@ -920,6 +920,7 @@ function renderDailyWordSetup(totalWords) {
         </div>
         <div class="actions">
           <button data-action="start-daily-words">今日のテストを作る</button>
+          <button class="secondary" data-action="start-daily-paper-ocr">紙の問題と回答を読み込む</button>
         </div>
       </div>
       <aside class="panel">
@@ -949,6 +950,9 @@ function renderDailyWordQuestions() {
       </header>
       <div class="print-note">
         A4画像は、問題・番号付き回答欄・練習する英単語を1枚にまとめます。書いた紙を写真で撮ると、解答ページの写真読み取りで答え合わせできます。
+      </div>
+      <div class="actions">
+        <button class="secondary" data-action="show-daily-answers">紙の問題と回答を読み込む</button>
       </div>
       <div class="daily-word-list questions-only">
         ${dailyWordCards.map((card, index) => `
@@ -1508,7 +1512,7 @@ function drawA4PrintSheet(cards) {
   context.font = "24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
   context.fillStyle = "#5d6d6c";
   context.fillText(`${today} / ${cards.length}問`, margin, 126);
-  context.fillText("答えは番号の右に英語で書いてください。写真読み取り用に、番号が見えるように書くと認識しやすくなります。", margin, 164);
+  context.fillText("答えは右側の大きな空欄に英語で書いてください。写真読み取りでは、印刷された問題と回答欄をまとめて読みます。", margin, 164);
 
   context.strokeStyle = "#cfdcda";
   context.lineWidth = 3;
@@ -1531,7 +1535,7 @@ function drawA4PrintSheet(cards) {
     const questionWidth = rowWidth * 0.42;
     const answerX = x + questionWidth + 76;
     const answerWidth = rowWidth - questionWidth - 86;
-    const answerHeight = count <= 5 ? 56 : 44;
+    const answerHeight = count <= 5 ? 66 : 50;
 
     context.fillStyle = "#24575a";
     context.font = "700 24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
@@ -1546,16 +1550,9 @@ function drawA4PrintSheet(cards) {
     context.lineWidth = 2;
     drawRoundedRect(context, answerX, boxY, answerWidth, answerHeight, 10);
     context.stroke();
-    const lineY = boxY + answerHeight - 13;
-    context.strokeStyle = "#8db5b0";
-    context.lineWidth = 2;
-    context.beginPath();
-    context.moveTo(answerX + 42, lineY);
-    context.lineTo(answerX + answerWidth - 18, lineY);
-    context.stroke();
     context.fillStyle = "#95a5a3";
     context.font = "20px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-    context.fillText(`${index + 1}.`, answerX + 12, lineY - 8);
+    context.fillText(`${index + 1}.`, answerX + 14, boxY + 31);
   });
 
   const practiceTop = testTop + testHeight + 48;
@@ -1575,28 +1572,32 @@ function drawA4PrintSheet(cards) {
   const practiceCards = cards.slice(0, Math.ceil(cards.length / 2));
   context.fillText(`${practiceCards.length}個を最低5回ずつ書いて練習しよう。`, margin + 280, practiceTop + 40);
 
-  const practiceRows = Math.ceil(practiceCards.length / 2);
-  const practiceGap = Math.min(120, Math.max(76, (practiceHeight - 120) / practiceRows));
+  const practiceColumns = practiceCards.length >= 4 ? 2 : 1;
+  const practiceColumnGap = 32;
+  const practiceColumnWidth = (contentWidth - 48 - practiceColumnGap * (practiceColumns - 1)) / practiceColumns;
+  const practiceRows = Math.ceil(practiceCards.length / practiceColumns);
+  const practiceGap = Math.min(112, Math.max(72, (practiceHeight - 130) / Math.max(1, practiceRows)));
   practiceCards.forEach((card, index) => {
-    const column = index >= Math.ceil(practiceCards.length / 2) ? 1 : 0;
+    const column = practiceColumns === 2 && index >= Math.ceil(practiceCards.length / 2) ? 1 : 0;
     const row = column ? index - Math.ceil(practiceCards.length / 2) : index;
-    const x = margin + 24 + column * (columnWidth + 36);
+    const x = margin + 24 + column * (practiceColumnWidth + practiceColumnGap);
     const y = practiceTop + 104 + row * practiceGap;
 
     context.fillStyle = "#24575a";
     context.font = "700 23px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-    context.fillText(`${index + 1}. ${card.en}`, x, y);
+    const enLines = wrapCanvasText(context, `${index + 1}. ${card.en}`, practiceColumnWidth - 12).slice(0, 2);
+    enLines.forEach((line, lineIndex) => context.fillText(line, x, y + lineIndex * 25));
     context.fillStyle = "#5d6d6c";
     context.font = "18px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-    const jaLines = wrapCanvasText(context, card.ja, columnWidth - 12).slice(0, 1);
-    if (jaLines[0]) context.fillText(jaLines[0], x, y + 24);
+    const jaLines = wrapCanvasText(context, card.ja, practiceColumnWidth - 12).slice(0, 1);
+    if (jaLines[0]) context.fillText(jaLines[0], x, y + 26 + (enLines.length - 1) * 25);
     context.strokeStyle = "#ead39f";
     context.lineWidth = 2;
     for (let line = 0; line < 3; line += 1) {
-      const lineY = y + 44 + line * 22;
+      const lineY = y + 50 + (enLines.length - 1) * 25 + line * 22;
       context.beginPath();
       context.moveTo(x, lineY);
-      context.lineTo(x + columnWidth - 8, lineY);
+      context.lineTo(x + practiceColumnWidth - 8, lineY);
       context.stroke();
     }
   });
@@ -1999,6 +2000,13 @@ function handleAction(event) {
   if (action === "start-daily-words") {
     stopVoiceInput("");
     startDailyWords(dailyWordCount);
+    render();
+  }
+  if (action === "start-daily-paper-ocr") {
+    stopVoiceInput("");
+    startDailyWords(dailyWordCount);
+    dailyWordStage = "answers";
+    dailyOcrStatus = "紙の問題と回答を撮影した写真を選んで、APIで読み取ってください。";
     render();
   }
   if (action === "show-daily-answers") {
